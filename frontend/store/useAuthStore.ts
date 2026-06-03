@@ -1,15 +1,15 @@
 // frontend/store/useAuthStore.ts
 import { create } from 'zustand';
 
-export interface User {
+// 🚀 FIXED: Added diamonds and inrBalance to the User type so TypeScript stops complaining
+interface User {
   id: string;
   username: string;
   role: string;
   email?: string;
   walletBalance?: number;
-  // 🚀 FIXED: Added these properties so TypeScript stops blocking the build!
-  diamonds?: number;
-  inrBalance?: number;
+  diamonds?: number;   // Added this!
+  inrBalance?: number; // Added this!
 }
 
 interface AuthState {
