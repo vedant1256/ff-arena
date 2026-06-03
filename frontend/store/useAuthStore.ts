@@ -7,8 +7,8 @@ interface User {
   role: string;
   email?: string;
   walletBalance?: number;
-  diamonds?: number;   // 🚀 FIXED: Added to satisfy TypeScript in Navbar.tsx
-  inrBalance?: number; // 🚀 FIXED: Added to satisfy TypeScript in Navbar.tsx
+  diamonds?: number;   
+  inrBalance?: number; 
 }
 
 interface AuthState {
@@ -16,6 +16,7 @@ interface AuthState {
   token: string | null;
   login: (token: string, userData: User) => void; 
   logout: () => void;
+  loadFromStorage: () => void; // 🚀 FIXED: Added to satisfy TypeScript in Providers.tsx
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -23,12 +24,26 @@ export const useAuthStore = create<AuthState>((set) => ({
   token: typeof window !== 'undefined' ? localStorage.getItem('token') : null,
   
   login: (token, userData) => {
-    localStorage.setItem('token', token);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('token', token);
+    }
     set({ user: userData, token });
   },
   
   logout: () => {
-    localStorage.removeItem('token');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+    }
     set({ user: null, token: null });
   },
+
+  // 🚀 FIXED: Implemented the missing function to load the token on page refresh
+  loadFromStorage: () => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      if (token) {
+        set({ token });
+      }
+    }
+  }
 }));
