@@ -1,12 +1,22 @@
+// frontend/app/tournaments/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
-import { tournamentsAPI } from "@/lib/axios";
-import { Tournament } from "@/types";
+import api from "@/lib/axios";
 import TournamentCard from "@/components/TournamentCard";
 
+// If you have a types file, you can import this, but inlining it prevents crashes
+interface Tournament {
+  id: string;
+  title: string;
+  gameName: string;
+  teamMode: string;
+  status: string;
+  [key: string]: any;
+}
+
 const TYPE_FILTERS = ["All", "Solo", "Duo", "Squad", "Clash Squad", "BR Kill Race"];
-const STATUS_FILTERS = ["All", "upcoming", "live", "completed"];
+const STATUS_FILTERS = ["All", "Open", "Closed", "Completed"]; // Matched to your DB logic
 const TYPE_COLORS: Record<string, string> = {
   Solo: "#00e5ff", Duo: "#7c3aed", Squad: "#10b981",
   "Clash Squad": "#f59e0b", "BR Kill Race": "#ef4444",
@@ -20,16 +30,24 @@ export default function TournamentsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    tournamentsAPI.getAll()
-      .then((res) => setTournaments(res.data.data || []))
-      .catch(() => {})
+    // 🚀 FIXED: Using our correctly configured api instance
+    api.get('/tournaments')
+      .then((res) => setTournaments(res.data || []))
+      .catch((err) => console.error("Failed to fetch tournaments:", err))
       .finally(() => setLoading(false));
   }, []);
 
   const filtered = tournaments.filter((t) => {
-    const matchType = typeFilter === "All" || t.type === typeFilter;
-    const matchStatus = statusFilter === "All" || t.status === statusFilter;
-    const matchSearch = !search || t.name.toLowerCase().includes(search.toLowerCase());
+    // 🚀 FIXED: Adjusted to match your actual database fields (gameName & teamMode)
+    const matchType = typeFilter === "All" || t.gameName === typeFilter || t.teamMode === typeFilter;
+    
+    // 🚀 FIXED: Mapped UI filters to actual backend Database Statuses
+    let matchStatus = true;
+    if (statusFilter === "Open") matchStatus = t.status === "REGISTRATION_OPEN";
+    if (statusFilter === "Closed") matchStatus = t.status === "REGISTRATION_CLOSED";
+    if (statusFilter === "Completed") matchStatus = t.status === "COMPLETED";
+
+    const matchSearch = !search || t.title?.toLowerCase().includes(search.toLowerCase());
     return matchType && matchStatus && matchSearch;
   });
 
@@ -48,7 +66,7 @@ export default function TournamentsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="🔍 Search tournaments..."
-          style={{ maxWidth: 340 }}
+          style={{ maxWidth: 340, width: "100%", padding: "10px 14px", borderRadius: "8px", background: "#11141D", border: "1px solid #374151", color: "white", outline: "none" }}
         />
       </div>
 
@@ -87,7 +105,7 @@ export default function TournamentsPage() {
       {loading ? (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} style={{ background: "#111118", borderRadius: 12, height: 220, opacity: 0.5 }} />
+            <div key={i} style={{ background: "#11141D", borderRadius: 12, height: 220, opacity: 0.5, animation: "pulse 2s infinite" }} />
           ))}
         </div>
       ) : filtered.length === 0 ? (
@@ -97,7 +115,8 @@ export default function TournamentsPage() {
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
-          {filtered.map((t) => <TournamentCard key={t._id} tournament={t} />)}
+          {/* 🚀 FIXED: Changed t._id to t.id */}
+          {filtered.map((t) => <TournamentCard key={t.id} tournament={t} />)}
         </div>
       )}
     </div>
