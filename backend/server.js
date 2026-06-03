@@ -2,20 +2,20 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const http = require('http'); // Required for WebSockets
+const http = require('http'); 
 const { Server } = require('socket.io');
 
 const authRoutes = require('./routes/authRoutes');
 const tournamentRoutes = require('./routes/tournamentRoutes');
 const walletRoutes = require('./routes/walletRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-const userRoutes = require('./routes/userRoutes'); // <-- NEW IMPORT
+const userRoutes = require('./routes/userRoutes'); 
 
 const app = express();
 const server = http.createServer(app);
 
-// 🚀 DYNAMIC CORS URL: Uses live domain if hosted, or localhost if testing
-const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+// 🚀 LIVE FRONTEND URL
+const frontendUrl = process.env.FRONTEND_URL || "https://ff-arena-vxy7.vercel.app";
 
 // 1. Initialize the Live Socket Engine
 const io = new Server(server, {
@@ -26,7 +26,7 @@ const io = new Server(server, {
     }
 });
 
-// 2. Inject Socket.io into every request so our controllers can broadcast
+// 2. Inject Socket.io into every request so controllers can broadcast
 app.use((req, res, next) => {
     req.io = io;
     next();
@@ -46,9 +46,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/tournaments', tournamentRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/users', userRoutes); // <-- NEW ROUTE REGISTERED
+app.use('/api/users', userRoutes); 
 
 const PORT = process.env.PORT || 5000;
 
-// IMPORTANT: We now start 'server', not 'app'
 server.listen(PORT, () => console.log(`🚀 Server and Socket Engine running on port ${PORT}`));
