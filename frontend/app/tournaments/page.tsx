@@ -116,7 +116,7 @@ export default function TournamentsPage() {
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
           {/* 🚀 FIXED: Changed t._id to t.id */}
-          {filtered.map((t) => <TournamentCard key={t.id} tournament={t} />)}
+          {filtered.map((t: any) => <TournamentCard key={t.id} tournament={t as any} />)}
         </div>
       )}
     </div>
