@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/store/auth";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export default function Navbar() {
   const { user, logout } = useAuthStore();
