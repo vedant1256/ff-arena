@@ -5,43 +5,30 @@ interface User {
   id: string;
   username: string;
   role: string;
-  email?: string; 
+  email?: string;
   walletBalance?: number;
+  diamonds?: number;   // 🚀 FIXED: Added to satisfy TypeScript in Navbar.tsx
+  inrBalance?: number; // 🚀 FIXED: Added to satisfy TypeScript in Navbar.tsx
 }
 
 interface AuthState {
   user: User | null;
   token: string | null;
-  login: (token: string, userData: User) => void;
+  login: (token: string, userData: User) => void; 
   logout: () => void;
-  loadFromStorage: () => void; // 🚀 ADDED: The missing property causing the build failure
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  token: null, // Start as null so Next.js server doesn't crash during build
+  token: typeof window !== 'undefined' ? localStorage.getItem('token') : null,
   
-  // 🚀 ADDED: Safely extracts token on the client side when Providers.tsx calls it
-  loadFromStorage: () => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
-      if (token) {
-        set({ token });
-      }
-    }
-  },
-
   login: (token, userData) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('token', token);
-    }
+    localStorage.setItem('token', token);
     set({ user: userData, token });
   },
   
   logout: () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-    }
+    localStorage.removeItem('token');
     set({ user: null, token: null });
   },
 }));
