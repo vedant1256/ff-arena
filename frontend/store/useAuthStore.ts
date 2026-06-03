@@ -1,25 +1,26 @@
 // frontend/store/useAuthStore.ts
 import { create } from 'zustand';
 
-interface User {
+export interface User {
   id: string;
   username: string;
   role: string;
-  email?: string; // Added to support our Bulletproof Admin check
+  email?: string;
   walletBalance?: number;
+  // 🚀 FIXED: Added these properties so TypeScript stops blocking the build!
+  diamonds?: number;
+  inrBalance?: number;
 }
 
 interface AuthState {
   user: User | null;
   token: string | null;
-  // FIX 1: Aligned argument order to (token, userData)
   login: (token: string, userData: User) => void; 
   logout: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  // FIX 2: Standardized local storage key to 'token'
   token: typeof window !== 'undefined' ? localStorage.getItem('token') : null,
   
   login: (token, userData) => {
