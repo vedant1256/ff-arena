@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { useAuthStore } from "@/store/auth";
+import { useAuthStore } from "@/store/useAuthStore";
 
 const queryClient = new QueryClient({
   defaultOptions: {
