@@ -1,0 +1,202 @@
+{
+  "users": [
+    {
+      "_id": "user_admin",
+      "name": "Admin",
+      "email": "admin@ffarena.com",
+      "phone": "9999999999",
+      "password": "FreeFire@Admin2024",
+      "ffUID": "ADMIN",
+      "role": "admin",
+      "inrBalance": 0,
+      "diamonds": 0,
+      "totalWins": 0,
+      "totalMatches": 0,
+      "xp": 0,
+      "isBanned": false,
+      "createdAt": "2026-05-26T15:44:39.046Z"
+    },
+    {
+      "_id": "user_player",
+      "name": "Demo Player",
+      "email": "player@ffarena.com",
+      "phone": "8888888888",
+      "password": "Player@123",
+      "ffUID": "FF123456789",
+      "role": "user",
+      "inrBalance": 1250,
+      "diamonds": 5000,
+      "totalWins": 4,
+      "totalMatches": 18,
+      "xp": 2400,
+      "isBanned": false,
+      "createdAt": "2026-05-26T15:44:39.048Z"
+    }
+  ],
+  "tournaments": [
+    {
+      "_id": "tour_solo",
+      "name": "Bermuda Solo Showdown",
+      "type": "Solo",
+      "map": "Bermuda",
+      "entryFee": 30,
+      "prizePool": 850,
+      "startTime": "2026-05-26T17:44:39.048Z",
+      "slots": 12,
+      "status": "upcoming",
+      "roomId": "",
+      "roomPass": "",
+      "roomReleasedAt": null,
+      "prizes": [
+        {
+          "pos": "1st",
+          "cash": 300,
+          "gems": 600
+        },
+        {
+          "pos": "2nd",
+          "cash": 200,
+          "gems": 400
+        },
+        {
+          "pos": "3rd",
+          "cash": 150,
+          "gems": 300
+        }
+      ],
+      "participants": [
+        {
+          "userId": "user_player",
+          "userName": "Demo Player",
+          "ffUID": "FF123456789",
+          "joinedAt": "2026-05-26T15:44:39.048Z"
+        }
+      ],
+      "perKill": 0,
+      "createdAt": "2026-05-26T15:44:39.048Z"
+    },
+    {
+      "_id": "tour_squad",
+      "name": "Squad Night Rush",
+      "type": "Squad",
+      "map": "Kalahari",
+      "entryFee": 50,
+      "prizePool": 1800,
+      "startTime": "2026-05-26T20:44:39.048Z",
+      "slots": 48,
+      "status": "upcoming",
+      "roomId": "",
+      "roomPass": "",
+      "roomReleasedAt": null,
+      "prizes": [
+        {
+          "pos": "1st",
+          "cash": 800,
+          "gems": 1000
+        },
+        {
+          "pos": "2nd",
+          "cash": 500,
+          "gems": 700
+        },
+        {
+          "pos": "3rd",
+          "cash": 300,
+          "gems": 400
+        }
+      ],
+      "participants": [],
+      "perKill": 0,
+      "createdAt": "2026-05-26T15:44:39.048Z"
+    },
+    {
+      "_id": "tour_killrace",
+      "name": "BR Kill Race Pro",
+      "type": "BR Kill Race",
+      "map": "Alpine",
+      "entryFee": 20,
+      "prizePool": 1000,
+      "startTime": "2026-05-27T15:44:39.048Z",
+      "slots": 20,
+      "status": "upcoming",
+      "roomId": "",
+      "roomPass": "",
+      "roomReleasedAt": null,
+      "prizes": [
+        {
+          "pos": "Per kill",
+          "cash": 25,
+          "gems": 0
+        }
+      ],
+      "participants": [],
+      "perKill": 25,
+      "createdAt": "2026-05-26T15:44:39.048Z"
+    },
+    {
+      "_id": "tour_live",
+      "name": "Clash Squad Live Cup",
+      "type": "Clash Squad",
+      "map": "Purgatory",
+      "entryFee": 40,
+      "prizePool": 1200,
+      "startTime": "2026-05-26T14:44:39.048Z",
+      "slots": 16,
+      "status": "live",
+      "roomId": "771982",
+      "roomPass": "BOOYAH",
+      "roomReleasedAt": "2026-05-26T15:44:39.048Z",
+      "prizes": [
+        {
+          "pos": "1st",
+          "cash": 700,
+          "gems": 500
+        },
+        {
+          "pos": "2nd",
+          "cash": 300,
+          "gems": 250
+        }
+      ],
+      "participants": [
+        {
+          "userId": "user_player",
+          "userName": "Demo Player",
+          "ffUID": "FF123456789",
+          "joinedAt": "2026-05-26T15:44:39.048Z"
+        }
+      ],
+      "perKill": 0,
+      "createdAt": "2026-05-26T15:44:39.048Z"
+    }
+  ],
+  "payments": [
+    {
+      "_id": "pay_pending",
+      "userId": "user_player",
+      "userName": "Demo Player",
+      "userEmail": "player@ffarena.com",
+      "ffUID": "FF123456789",
+      "tournamentId": "tour_squad",
+      "tournamentName": "Squad Night Rush",
+      "amount": 50,
+      "utrId": "DEMO123456789",
+      "status": "pending",
+      "rejectionReason": "",
+      "createdAt": "2026-05-26T15:44:39.048Z"
+    }
+  ],
+  "withdrawals": [
+    {
+      "_id": "with_pending",
+      "userId": "user_player",
+      "userName": "Demo Player",
+      "upiId": "demo@upi",
+      "amount": 500,
+      "type": "inr",
+      "inrEquivalent": 500,
+      "status": "pending",
+      "createdAt": "2026-05-26T15:44:39.048Z"
+    }
+  ]
+}

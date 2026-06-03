@@ -1,0 +1,103 @@
+// backend/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- ENUMS ---
+enum Role {
+  PLAYER
+  HOST
+  ADMIN
+}
+
+enum TournamentStatus {
+  UPCOMING
+  REGISTRATION_OPEN
+  REGISTRATION_CLOSED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TransactionType {
+  DEPOSIT
+  DEBIT
+  CREDIT
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+// --- MODELS ---
+model User {
+  id               String   @id @default(uuid())
+  username         String   @unique
+  email            String   @unique
+  passwordHash     String
+  freeFireUid      String?  @unique
+  role             Role     @default(PLAYER)
+  isBanned         Boolean  @default(false)
+  walletBalance    Float    @default(0.00)
+  
+  // NEW: Legal Compliance Fields
+  hasAcceptedTerms Boolean  @default(false)
+  termsAcceptedAt  DateTime?
+  
+  tournaments      Tournament[]
+  transactions     Transaction[]
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Transaction {
+  id                String            @id @default(uuid())
+  amount            Float
+  type              TransactionType
+  status            TransactionStatus @default(PENDING)
+  description       String?           
+  
+  razorpayOrderId   String?           @unique
+  razorpayPaymentId String?           @unique
+  
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String
+  
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+}
+
+model Tournament {
+  id                  String   @id @default(uuid())
+  title               String
+  description         String?
+  gameName            String   @default("Free Fire")
+  
+  map                 String   @default("Bermuda")
+  teamMode            String   @default("Solo")
+  minLevel            Int      @default(40)
+  
+  entryFee            Float    @default(0.00)
+  prizePool           Float    @default(0.00)
+  maxParticipants     Int      @default(48)
+  currentParticipants Int      @default(0)
+  status              TournamentStatus @default(UPCOMING)
+  scheduledAt         DateTime
+  
+  roomId              String?
+  roomPassword        String?
+
+  participants        User[]
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
