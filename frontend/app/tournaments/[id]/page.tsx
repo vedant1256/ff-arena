@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import api from "@/lib/axios"; // 🚀 FIXED: Using the unified api instance
+import api from "@/lib/axios";
 import { useAuthStore } from '@/store/useAuthStore';
 import Link from "next/link";
 
@@ -34,7 +34,6 @@ export default function TournamentDetailPage() {
   const fetchTournamentData = async () => {
     try {
       const res = await api.get(`/tournaments/${id}`);
-      // Accommodate both standard data return wrappers gracefully
       const tData = res.data?.data || res.data;
       setTournament(tData);
       
@@ -74,7 +73,6 @@ export default function TournamentDetailPage() {
     return () => clearInterval(interval);
   }, [tournament]);
 
-  // 🚀 ACTION: Deduct entry fees straight from the digital wallet layout
   const handleJoinWithWallet = async () => {
     if (!user) { 
       router.push("/login"); 
@@ -148,7 +146,7 @@ export default function TournamentDetailPage() {
               { l: "Match Status", v: (tournament.status || 'OPEN').replace('_', ' '), c: tournament.status === "COMPLETED" ? "#6b7280" : "#10b981" },
             ].map((s) => (
               <div key={s.l} style={{ background: "#0A0C10", borderRadius: 10, padding: "12px 14px", border: '1px solid #1f2937' }}>
-                <div style={{ color: "#6b7280", fontSize: 10, marginBottom: 4, textTransform: 'uppercase', fontWeight: 'bold', tracking: '0.05em' }}>{s.l}</div>
+                <div style={{ color: "#6b7280", fontSize: 10, marginBottom: 4, textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.05em' }}>{s.l}</div>
                 <div style={{ color: s.c, fontWeight: 800, fontSize: 18 }}>{s.v}</div>
               </div>
             ))}
