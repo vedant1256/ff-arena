@@ -165,35 +165,57 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4 border-b border-gray-800/50 pb-4 relative z-10">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 border-b border-gray-800/50 pb-4 relative z-10">
         <div className="flex items-center gap-2"><Gamepad2 className="text-[#b026ff]" size={28} /><h1 className="text-2xl font-bold tracking-wider">FF Arena</h1></div>
-        <div className="flex items-center gap-4 text-sm font-medium">
-          <span className="text-gray-400 hover:text-white cursor-pointer transition">Tournaments</span>
+        <div className="flex items-center gap-3 md:gap-4 text-sm font-medium flex-wrap justify-center">
+          <span className="text-gray-400 hover:text-white cursor-pointer transition hidden md:block">Tournaments</span>
           {isUserAdmin && (
-            <Link href="/admin"><button className="bg-yellow-500/20 text-yellow-500 border border-yellow-500/50 px-4 py-1.5 rounded flex items-center gap-2 hover:bg-yellow-500/30 transition shadow-[0_0_15px_rgba(234,179,8,0.2)]">👑 Admin</button></Link>
+            <Link href="/admin"><button className="bg-yellow-500/20 text-yellow-500 border border-yellow-500/50 px-3 py-1.5 rounded flex items-center gap-2 hover:bg-yellow-500/30 transition shadow-[0_0_15px_rgba(234,179,8,0.2)]">👑 Admin</button></Link>
           )}
-          <button onClick={() => setIsWalletOpen(true)} className="bg-[#11141D] border border-cyan-900/50 px-4 py-1.5 rounded flex items-center gap-2 text-cyan-400 hover:bg-[#1a1e2b] transition active:scale-95"><Diamond size={14} /> {balance.toFixed(0)} | ₹{balance.toFixed(0)}</button>
-          <button onClick={() => setIsProfileOpen(true)} className="bg-[#b026ff]/10 border border-[#b026ff]/30 text-[#b026ff] px-4 py-1.5 rounded hover:bg-[#b026ff]/20 transition flex items-center gap-2"><User size={14} /> Profile</button>
-          <button onClick={handleLogout} className="text-gray-400 hover:text-red-400 transition ml-2">Logout</button>
+          <button onClick={() => setIsWalletOpen(true)} className="bg-[#11141D] border border-cyan-900/50 px-3 py-1.5 rounded flex items-center gap-2 text-cyan-400 hover:bg-[#1a1e2b] transition active:scale-95"><Diamond size={14} /> {balance.toFixed(0)} | ₹{balance.toFixed(0)}</button>
+          <button onClick={() => setIsProfileOpen(true)} className="bg-[#b026ff]/10 border border-[#b026ff]/30 text-[#b026ff] px-3 py-1.5 rounded hover:bg-[#b026ff]/20 transition flex items-center gap-2"><User size={14} /> Profile</button>
+          <button onClick={handleLogout} className="text-gray-400 hover:text-red-400 transition ml-1 md:ml-2">Logout</button>
         </div>
       </div>
 
-      <div className="bg-[#11141D] border border-red-900/40 rounded-2xl p-6 mb-10 relative z-10 shadow-[0_0_20px_rgba(220,38,38,0.05)]">
-        <h2 className="text-xl font-bold text-red-500 mb-5 flex items-center gap-2 uppercase tracking-wider"><ShieldAlert size={24} className="text-red-500" /> Arena Rules & Guidelines</h2>
-        <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-300">
-          <li className="flex items-start gap-3 bg-[#0A0C10] p-4 rounded-xl border border-gray-800"><span className="text-red-500 font-bold mt-0.5 text-lg">•</span><span><strong>No Emulators:</strong> This platform is strictly for mobile players. PC/Emulator players will be instantly kicked from rooms and the entry fee will be forfeited.</span></li>
-          <li className="flex items-start gap-3 bg-[#0A0C10] p-4 rounded-xl border border-gray-800"><span className="text-red-500 font-bold mt-0.5 text-lg">•</span><span><strong>UID Verification:</strong> Your in-game Free Fire UID must perfectly match the UID saved in your Profile. Mismatched IDs will not receive prize payouts.</span></li>
-          <li className="flex items-start gap-3 bg-[#0A0C10] p-4 rounded-xl border border-gray-800"><span className="text-red-500 font-bold mt-0.5 text-lg">•</span><span><strong>Zero Tolerance for Cheaters:</strong> Any use of hacks, scripts, glitches, or teaming up in Solo matches will result in a permanent hardware & IP ban.</span></li>
-          <li className="flex items-start gap-3 bg-[#0A0C10] p-4 rounded-xl border border-gray-800"><span className="text-red-500 font-bold mt-0.5 text-lg">•</span><span><strong>Timings & Disputes:</strong> Join rooms exactly at the scheduled time. Admin decisions are final. Record your gameplay if you wish to report suspicious opponents.</span></li>
+      {/* Refactored Single-Line Rules Section */}
+      <div className="bg-[#11141D] border border-red-900/40 rounded-2xl p-4 md:p-6 mb-8 relative z-10 shadow-[0_0_20px_rgba(220,38,38,0.05)]">
+        <h2 className="text-lg md:text-xl font-bold text-red-500 mb-4 flex items-center gap-2 uppercase tracking-wider">
+          <ShieldAlert size={20} className="text-red-500" /> Arena Rules & Guidelines
+        </h2>
+        <ul className="flex flex-col gap-2.5 text-xs md:text-sm text-gray-300">
+          <li className="flex items-start md:items-center gap-3 bg-[#0A0C10] p-3 rounded-lg border border-gray-800">
+            <span className="text-red-500 font-bold mt-0.5 md:mt-0 leading-none">•</span>
+            <span><strong>No PC Players Allowed:</strong> Strictly no PC or Emulator players permitted in any match.</span>
+          </li>
+          <li className="flex items-start md:items-center gap-3 bg-[#0A0C10] p-3 rounded-lg border border-gray-800">
+            <span className="text-red-500 font-bold mt-0.5 md:mt-0 leading-none">•</span>
+            <span><strong>Mobile Only:</strong> Platform is for mobile players only. Violators will be kicked and entry fee forfeited.</span>
+          </li>
+          <li className="flex items-start md:items-center gap-3 bg-[#0A0C10] p-3 rounded-lg border border-gray-800">
+            <span className="text-red-500 font-bold mt-0.5 md:mt-0 leading-none">•</span>
+            <span><strong>UID Verification:</strong> In-game Free Fire UID must perfectly match your saved Profile UID for payouts.</span>
+          </li>
+          <li className="flex items-start md:items-center gap-3 bg-[#0A0C10] p-3 rounded-lg border border-gray-800">
+            <span className="text-red-500 font-bold mt-0.5 md:mt-0 leading-none">•</span>
+            <span><strong>Zero Tolerance:</strong> Hacks, scripts, glitches, or teaming up will result in a permanent ban.</span>
+          </li>
+          <li className="flex items-start md:items-center gap-3 bg-[#0A0C10] p-3 rounded-lg border border-gray-800">
+            <span className="text-red-500 font-bold mt-0.5 md:mt-0 leading-none">•</span>
+            <span><strong>Timings:</strong> Join exactly at the scheduled time. Admin decisions are final.</span>
+          </li>
         </ul>
       </div>
 
-      <div className="flex flex-wrap gap-3 mb-8 relative z-10">
+      {/* Tabs */}
+      <div className="flex flex-wrap gap-2 md:gap-3 mb-8 relative z-10">
         {['All', 'Solo', 'Duo', 'Squad', 'Clash Squad', 'Lone Wolf'].map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-1.5 rounded-full text-sm font-semibold transition-all ${activeTab === tab ? 'bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/50' : 'bg-transparent text-gray-400 border border-gray-800 hover:border-gray-600'}`}>{tab}</button>
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-1.5 rounded-full text-xs md:text-sm font-semibold transition-all ${activeTab === tab ? 'bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/50' : 'bg-transparent text-gray-400 border border-gray-800 hover:border-gray-600'}`}>{tab}</button>
         ))}
       </div>
 
+      {/* Tournaments Grid */}
       {filteredTournaments.length === 0 ? (
         <div className="bg-[#11141D] border border-gray-800 rounded-2xl p-10 text-center relative z-10"><p className="text-gray-500">No active {activeTab !== 'All' ? activeTab : ''} tournaments available. Please check back later.</p></div>
       ) : (
