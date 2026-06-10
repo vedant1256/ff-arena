@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '../../store/useAuthStore';
 import api from '../../lib/axios';
-import { Gamepad2, ShieldAlert, Loader2, CheckSquare, Square } from 'lucide-react';
+import { Gamepad2, ShieldAlert, Loader2, CheckSquare, Square, X } from 'lucide-react';
 
 const GoogleIcon = () => (
   <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -19,11 +19,8 @@ const GoogleIcon = () => (
 export default function LoginPage() {
   const { login } = useAuthStore();
   const router = useRouter();
-  
-  // 🚀 The strict Entry Gate state
-  const [gatePassed, setGatePassed] = useState(false);
-  const [gateChecked, setGateChecked] = useState(false);
 
+  // Primary Form States (Always visible first)
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,32 +30,37 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  // Modal States (Hidden by default, triggered ONLY after button click)
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [termsChecked, setTermsChecked] = useState(false);
+  const [pendingAction, setPendingAction] = useState<any>(null); 
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
-    try {
-      let res;
-      // Because they passed the gate, we automatically send hasAcceptedTerms: true
-      if (isLogin) {
-        res = await api.post('/auth/login', { email, password, hasAcceptedTerms: true });
-      } else {
-        res = await api.post('/auth/register', { username, email, password, hasAcceptedTerms: true });
+    if (isLogin) {
+      // Standard Returning User Login (No terms needed)
+      setLoading(true);
+      try {
+        const res = await api.post('/auth/login', { email, password });
+        const token = res.data?.token;
+        if (token && typeof window !== 'undefined') {
+          localStorage.setItem('token', token);
+          login(token, res.data);
+          window.location.replace('/dashboard');
+        }
+      } catch (err: any) {
+        setError(err.response?.data?.error || 'Authentication failed. Please try again.');
+      } finally {
+        setLoading(false);
       }
-      
-      const token = res.data?.token;
-      if (token && typeof window !== 'undefined') {
-        localStorage.setItem('token', token);
-        login(token, res.data);
-        window.location.replace('/dashboard');
-      } else {
-        throw new Error('Token missing from server response.');
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Authentication failed. Please try again.');
-      setLoading(false);
-    } 
+    } else {
+      // PROGRESSIVE ONBOARDING: User filled the manual form. Save data and show Terms Modal!
+      setPendingAction({ type: 'manual', payload: { username, email, password } });
+      setTermsChecked(false);
+      setShowTermsModal(true);
+    }
   };
 
   const handleGoogleLogin = () => {
@@ -68,7 +70,7 @@ export default function LoginPage() {
     const startGoogleFlow = () => {
       const google = (window as any).google;
       if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
-        setError("System Error: Google Client ID is missing in .env.local file.");
+        setError("System Error: Google Client ID is missing.");
         setGoogleLoading(false);
         return;
       }
@@ -79,12 +81,17 @@ export default function LoginPage() {
         callback: async (tokenResponse: any) => {
           if (tokenResponse && tokenResponse.access_token) {
             try {
-              // Attach terms acceptance to the Google API call
-              const res = await api.post('/auth/google', {
-                access_token: tokenResponse.access_token,
-                hasAcceptedTerms: true
-              });
+              const res = await api.post('/auth/google', { access_token: tokenResponse.access_token });
               
+              // PROGRESSIVE ONBOARDING: Backend says Google user is NEW. Show Terms Modal!
+              if (res.data?.requiresTerms) {
+                setPendingAction({ type: 'google', payload: { access_token: tokenResponse.access_token } });
+                setTermsChecked(false);
+                setShowTermsModal(true);
+                return;
+              }
+
+              // Backend says Google user is RETURNING. Log them in instantly!
               const token = res.data?.token;
               if (token && typeof window !== 'undefined') {
                 localStorage.setItem('token', token);
@@ -93,6 +100,7 @@ export default function LoginPage() {
               }
             } catch (err: any) {
               setError(`Google Login Failed: ${err.response?.data?.error || err.message}`);
+            } finally {
               setGoogleLoading(false);
             }
           }
@@ -119,128 +127,164 @@ export default function LoginPage() {
     }
   };
 
-  const handleDecline = () => {
-    window.location.href = 'https://www.google.com';
+  // Final confirmation: Fires after they check the modal box
+  const confirmTermsAndProceed = async () => {
+    setLoading(true);
+    setError('');
+    setShowTermsModal(false); 
+
+    try {
+      let res: any;
+      if (pendingAction.type === 'manual') {
+        res = await api.post('/auth/register', { ...pendingAction.payload, hasAcceptedTerms: true });
+      } else if (pendingAction.type === 'google') {
+        res = await api.post('/auth/google', { ...pendingAction.payload, hasAcceptedTerms: true });
+      }
+
+      const token = res?.data?.token;
+      if (token && typeof window !== 'undefined') {
+        localStorage.setItem('token', token);
+        login(token, res?.data);
+        window.location.replace('/dashboard');
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#090B10] flex items-center justify-center p-4">
-      {/* 🚀 THE STRICT ENTRY GATE */}
-      {!gatePassed ? (
-        <div className="bg-[#11141D] border border-[#b026ff]/30 rounded-2xl w-full max-w-3xl flex flex-col shadow-[0_0_50px_rgba(176,38,255,0.15)] overflow-hidden animate-in fade-in duration-500">
-          <div className="flex items-center gap-3 p-6 border-b border-gray-800 bg-[#0A0C10]">
-            <Gamepad2 className="text-[#b026ff]" size={28} />
-            <h1 className="text-xl font-extrabold text-white tracking-widest uppercase">FF Arena Entry Gate</h1>
-          </div>
-          <div className="p-6 md:p-8 overflow-y-auto max-h-[50vh] custom-scrollbar text-sm text-gray-300 space-y-6 bg-[#11141D]">
-            <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-xl flex gap-3">
-              <ShieldAlert className="text-red-500 flex-shrink-0" size={24} />
+    <div className="min-h-screen bg-[#090B10] flex items-center justify-center p-4 relative">
+      
+      {/* 🚀 THE TERMS MODAL (HIDDEN until triggered by button click) */}
+      {showTermsModal && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="bg-[#11141D] border border-[#b026ff]/50 rounded-3xl w-full max-w-2xl flex flex-col shadow-[0_0_50px_rgba(176,38,255,0.2)] overflow-hidden animate-in zoom-in-95 duration-300 relative z-[1000]">
+            <div className="flex items-center justify-between p-6 border-b border-gray-800 bg-[#0A0C10]">
+              <div className="flex items-center gap-3">
+                <Gamepad2 className="text-[#b026ff]" size={28} />
+                <h1 className="text-xl font-extrabold text-white tracking-widest uppercase">Arena Rules</h1>
+              </div>
+              <button onClick={() => setShowTermsModal(false)} className="text-gray-500 hover:text-white transition">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="p-6 md:p-8 overflow-y-auto max-h-[50vh] custom-scrollbar text-sm text-gray-300 space-y-6 bg-[#11141D]">
+              <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-xl flex gap-3">
+                <ShieldAlert className="text-red-500 flex-shrink-0" size={24} />
+                <div>
+                  <h3 className="text-red-500 font-bold uppercase tracking-wider mb-1">Final Step Required</h3>
+                  <p className="text-red-400/80 text-xs">To finalize your account creation, you must legally agree to our platform rules.</p>
+                </div>
+              </div>
               <div>
-                <h3 className="text-red-500 font-bold uppercase tracking-wider mb-1">Action Required</h3>
-                <p className="text-red-400/80 text-xs">You must read and agree to the platform rules before you are allowed to log in or create an account.</p>
+                <h3 className="font-bold text-white mb-2 text-base">1. Eligibility & Verification</h3>
+                <ul className="list-disc pl-5 space-y-1 text-gray-400">
+                  <li>You must be at least 18 years of age.</li>
+                  <li>Your Free Fire Game UID must perfectly match the UID on your Profile. Playing with an unregistered ID forfeits winnings.</li>
+                </ul>
               </div>
-            </div>
-            <div>
-              <h3 className="font-bold text-white mb-2 text-base">1. Eligibility & Account Verification</h3>
-              <ul className="list-disc pl-5 space-y-1 text-gray-400">
-                <li>You must be at least 18 years of age to participate in paid tournaments.</li>
-                <li>Your registered Free Fire Game UID must perfectly match the UID you use in-game. Playing with an unregistered ID will result in immediate disqualification and forfeiture of winnings.</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-bold text-red-400 mb-2 text-base">2. Strict Anti-Cheat & Fair Play Policy</h3>
-              <ul className="list-disc pl-5 space-y-1 text-gray-400">
-                <li><strong>Emulators Strictly Prohibited:</strong> This platform is exclusively for mobile players. Use of PC emulators will trigger an automatic kick from the custom room and a permanent platform ban.</li>
-                <li><strong>Zero Tolerance on Hacks:</strong> Any use of third-party scripts, aimbots, wallhacks, or modified APKs will result in an irrevocable permanent hardware and IP ban. Confiscated wallet funds will not be refunded.</li>
-                <li><strong>Teaming:</strong> Teaming up with opponents in Solo or non-designated team modes is strictly forbidden and heavily monitored.</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-bold text-white mb-2 text-base">3. Entry Fees, Wallets & Refunds</h3>
-              <ul className="list-disc pl-5 space-y-1 text-gray-400">
-                <li>Once an entry fee is paid and a slot is secured, it is <strong>non-refundable</strong> unless the tournament is cancelled by the Admin.</li>
-                <li>If you miss the match start time, or fail to enter the Custom Room before it launches, your entry fee is forfeit.</li>
-              </ul>
-            </div>
-          </div>
-          <div className="p-6 bg-[#0A0C10] border-t border-gray-800">
-            <button type="button" onClick={() => setGateChecked(!gateChecked)} className="flex items-start gap-3 w-full text-left group mb-6">
-              <div className="mt-0.5 flex-shrink-0">
-                {gateChecked ? <CheckSquare size={22} className="text-[#00F0FF]" /> : <Square size={22} className="text-gray-600 group-hover:text-gray-400 transition" />}
-              </div>
-              <span className={`text-sm leading-relaxed transition ${gateChecked ? 'text-gray-200 font-medium' : 'text-gray-500'}`}>
-                I have read, understood, and legally agree to abide by the FF Arena Rules, Anti-Cheat Guidelines, and Refund Policy.
-              </span>
-            </button>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <button onClick={handleDecline} className="flex-1 py-3.5 rounded-xl font-bold text-gray-400 border border-gray-800 hover:bg-gray-800 hover:text-white transition uppercase tracking-wider">
-                Decline & Exit
-              </button>
-              <button disabled={!gateChecked} onClick={() => setGatePassed(true)} className={`flex-1 py-3.5 rounded-xl font-extrabold uppercase tracking-widest transition-all ${gateChecked ? 'bg-[#b026ff] hover:bg-[#901ecc] text-white shadow-[0_0_20px_rgba(176,38,255,0.4)] active:scale-95' : 'bg-gray-800 text-gray-600 cursor-not-allowed'}`}>
-                Accept & Proceed
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* 🚀 THE MAIN LOGIN FORM (ONLY SHOWS AFTER GATE IS PASSED) */
-        <div className="w-full max-w-md bg-[#11141D] border border-gray-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-[#b026ff] blur-[10px]"></div>
-          <div className="flex flex-col items-center mb-8">
-            <div className="bg-[#b026ff]/10 p-4 rounded-2xl mb-4 border border-[#b026ff]/30">
-              <Gamepad2 className="text-[#b026ff]" size={40} />
-            </div>
-            <h1 className="text-3xl font-extrabold text-white tracking-widest uppercase">FF Arena</h1>
-            <p className="text-gray-500 text-sm mt-1">{isLogin ? 'Welcome back, Champion' : 'Create your gaming legacy'}</p>
-          </div>
-
-          {error && (
-            <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-3 rounded-lg text-sm text-center mb-6 font-medium flex items-center justify-center gap-2">
-              <ShieldAlert size={16} /> {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Gamer Tag (Username)</label>
-                <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-[#0A0C10] border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-[#b026ff] outline-none transition" placeholder="e.g., HeadshotKing" />
+                <h3 className="font-bold text-red-400 mb-2 text-base">2. Strict Anti-Cheat Policy</h3>
+                <ul className="list-disc pl-5 space-y-1 text-gray-400">
+                  <li><strong>No Emulators:</strong> Mobile players only. PC use triggers an automatic ban.</li>
+                  <li><strong>Zero Tolerance on Hacks:</strong> Scripts, aimbots, or glitches result in a permanent hardware & IP ban.</li>
+                  <li><strong>No Teaming:</strong> Teaming in Solo modes is strictly forbidden.</li>
+                </ul>
               </div>
-            )}
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Email Address</label>
-              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-[#0A0C10] border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-[#b026ff] outline-none transition" placeholder="name@example.com" />
+              <div>
+                <h3 className="font-bold text-white mb-2 text-base">3. Wallets & Refunds</h3>
+                <ul className="list-disc pl-5 space-y-1 text-gray-400">
+                  <li>Entry fees are <strong>non-refundable</strong> unless the admin cancels the match.</li>
+                  <li>Missing the match start time forfeits your entry fee.</li>
+                </ul>
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Password</label>
-              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-[#0A0C10] border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-[#b026ff] outline-none transition" placeholder="••••••••" />
-            </div>
-            <button type="submit" disabled={loading || googleLoading} className="w-full py-3.5 rounded-xl font-extrabold uppercase tracking-widest transition-all mt-6 flex justify-center items-center gap-2 bg-[#b026ff] hover:bg-[#901ecc] text-white active:scale-95 shadow-[0_0_20px_rgba(176,38,255,0.4)] disabled:opacity-70">
-              {loading ? <Loader2 className="animate-spin" size={20} /> : (isLogin ? 'Enter Arena' : 'Initialize Account')}
-            </button>
-          </form>
 
-          <div className="relative flex items-center py-6">
-            <div className="flex-grow border-t border-gray-800"></div>
-            <span className="flex-shrink-0 mx-4 text-gray-600 text-xs font-bold uppercase tracking-wider">Or</span>
-            <div className="flex-grow border-t border-gray-800"></div>
-          </div>
-
-          <button type="button" disabled={loading || googleLoading} onClick={handleGoogleLogin} className="w-full flex justify-center items-center gap-3 bg-white hover:bg-gray-200 text-black font-extrabold py-3.5 rounded-xl transition-all active:scale-95 disabled:opacity-70">
-            {googleLoading ? <Loader2 className="animate-spin text-black" size={20} /> : <GoogleIcon />}
-            {googleLoading ? 'Connecting...' : 'Continue with Google'}
-          </button>
-
-          <div className="mt-8 text-center border-t border-gray-800/50 pt-6">
-            <p className="text-sm text-gray-500">
-              {isLogin ? "Don't have an account?" : "Already have an account?"}
-              <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="ml-2 text-[#00F0FF] font-bold hover:underline">
-                {isLogin ? 'Sign Up' : 'Log In'}
+            <div className="p-6 bg-[#0A0C10] border-t border-gray-800">
+              <button type="button" onClick={() => setTermsChecked(!termsChecked)} className="flex items-start gap-3 w-full text-left group mb-6">
+                <div className="mt-0.5 flex-shrink-0">
+                  {termsChecked ? <CheckSquare size={22} className="text-[#00F0FF]" /> : <Square size={22} className="text-gray-600 group-hover:text-gray-400 transition" />}
+                </div>
+                <span className={`text-sm leading-relaxed transition ${termsChecked ? 'text-gray-200 font-medium' : 'text-gray-500'}`}>
+                  I have read, understood, and legally agree to abide by the FF Arena Rules, Anti-Cheat Guidelines, and Refund Policy.
+                </span>
               </button>
-            </p>
+              <div className="flex gap-4">
+                <button disabled={!termsChecked || loading} onClick={confirmTermsAndProceed} className={`w-full py-4 rounded-xl font-extrabold uppercase tracking-widest transition-all flex justify-center items-center gap-2 ${termsChecked ? 'bg-[#b026ff] hover:bg-[#901ecc] text-white shadow-[0_0_20px_rgba(176,38,255,0.4)] active:scale-95' : 'bg-gray-800 text-gray-600 cursor-not-allowed'}`}>
+                  {loading ? <Loader2 className="animate-spin" size={20} /> : 'Accept & Create Account'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
+
+      {/* 🚀 THE MAIN SIGN IN / SIGN UP FORM (Always visible immediately on load!) */}
+      <div className="w-full max-w-md bg-[#11141D] border border-gray-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-[#b026ff] blur-[10px]"></div>
+        <div className="flex flex-col items-center mb-8">
+          <div className="bg-[#b026ff]/10 p-4 rounded-2xl mb-4 border border-[#b026ff]/30">
+            <Gamepad2 className="text-[#b026ff]" size={40} />
+          </div>
+          <h1 className="text-3xl font-extrabold text-white tracking-widest uppercase">FF Arena</h1>
+          <p className="text-gray-500 text-sm mt-1">{isLogin ? 'Welcome back, Champion' : 'Create your gaming legacy'}</p>
+        </div>
+
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-3 rounded-lg text-sm text-center mb-6 font-medium flex items-center justify-center gap-2">
+            <ShieldAlert size={16} /> {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {!isLogin && (
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Gamer Tag (Username)</label>
+              <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-[#0A0C10] border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-[#b026ff] outline-none transition" placeholder="e.g., HeadshotKing" />
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Email Address</label>
+            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-[#0A0C10] border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-[#b026ff] outline-none transition" placeholder="name@example.com" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Password</label>
+            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-[#0A0C10] border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-[#b026ff] outline-none transition" placeholder="••••••••" />
+          </div>
+          <button type="submit" disabled={loading || googleLoading} className="w-full py-3.5 rounded-xl font-extrabold uppercase tracking-widest transition-all mt-6 flex justify-center items-center gap-2 bg-[#b026ff] hover:bg-[#901ecc] text-white active:scale-95 shadow-[0_0_20px_rgba(176,38,255,0.4)] disabled:opacity-70">
+            {loading && !showTermsModal ? <Loader2 className="animate-spin" size={20} /> : (isLogin ? 'Enter Arena' : 'Initialize Account')}
+          </button>
+        </form>
+
+        <div className="relative flex items-center py-6">
+          <div className="flex-grow border-t border-gray-800"></div>
+          <span className="flex-shrink-0 mx-4 text-gray-600 text-xs font-bold uppercase tracking-wider">Or</span>
+          <div className="flex-grow border-t border-gray-800"></div>
+        </div>
+
+        <button type="button" disabled={loading || googleLoading} onClick={handleGoogleLogin} className="w-full flex justify-center items-center gap-3 bg-white hover:bg-gray-200 text-black font-extrabold py-3.5 rounded-xl transition-all active:scale-95 disabled:opacity-70">
+          {googleLoading ? <Loader2 className="animate-spin text-black" size={20} /> : <GoogleIcon />}
+          {googleLoading ? 'Connecting...' : 'Continue with Google'}
+        </button>
+
+        <div className="mt-8 text-center border-t border-gray-800/50 pt-6">
+          <p className="text-sm text-gray-500">
+            {isLogin ? "Don't have an account?" : "Already have an account?"}
+            <button 
+              onClick={() => { 
+                setIsLogin(!isLogin); 
+                setError(''); 
+              }} 
+              className="ml-2 text-[#00F0FF] font-bold hover:underline"
+            >
+              {isLogin ? 'Sign Up' : 'Log In'}
+            </button>
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
