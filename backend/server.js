@@ -14,14 +14,22 @@ const userRoutes = require('./routes/userRoutes');
 const app = express();
 const server = http.createServer(app);
 
-// 🚀 LIVE FRONTEND URL
-const frontendUrl = process.env.FRONTEND_URL || "https://ff-arena-vxy7.vercel.app";
+// 🚀 THE BULLETPROOF CORS ARRAY
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://ff-arena-dfd5.vercel.app'
+];
+
+// Fallback just in case you update your Render environment variable later
+if (process.env.FRONTEND_URL && !allowedOrigins.includes(process.env.FRONTEND_URL)) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
 
 // 1. Initialize the Live Socket Engine
 const io = new Server(server, {
     cors: {
-        origin: frontendUrl,
-        methods: ["GET", "POST", "PUT", "DELETE"],
+        origin: allowedOrigins,
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         credentials: true
     }
 });
@@ -34,8 +42,8 @@ app.use((req, res, next) => {
 
 // 3. Configure Express CORS for the REST API
 app.use(cors({
-    origin: frontendUrl,
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
 }));
 
