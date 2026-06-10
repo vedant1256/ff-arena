@@ -4,7 +4,6 @@ const prisma = new PrismaClient();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// 👑 STRICT ADMIN EMAIL LIST
 const ADMIN_EMAILS = [
   "vedantjadhav30.7.2007@gmail.com",
   "shrikrishnadevkar60@gmail.com",
@@ -15,7 +14,6 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
-// 1. Standard Registration
 const registerUser = async (req, res) => {
   try {
     const { username, email, password, hasAcceptedTerms } = req.body;
@@ -47,7 +45,6 @@ const registerUser = async (req, res) => {
   }
 };
 
-// 2. Standard Login
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -77,7 +74,6 @@ const loginUser = async (req, res) => {
   }
 };
 
-// 3. GOOGLE OAUTH LOGIN (WITH SMART TERMS GATING)
 const googleLogin = async (req, res) => {
   try {
     const { access_token, hasAcceptedTerms } = req.body;
@@ -97,11 +93,11 @@ const googleLogin = async (req, res) => {
     const isAssignedAdmin = ADMIN_EMAILS.includes(googleUser.email.toLowerCase());
 
     if (!user) {
-      // 🚀 NEW: If they are a brand new user but haven't accepted terms yet, send a 403 signal to the frontend!
       if (!hasAcceptedTerms) {
-        return res.status(403).json({ 
+        // Returns 200 instead of 403 to bypass strict frontend Axios interceptors
+        return res.status(200).json({ 
           requiresTerms: true, 
-          error: "Please accept the Arena Rules to create your account." 
+          message: "Please accept the Arena Rules to create your account." 
         });
       }
 

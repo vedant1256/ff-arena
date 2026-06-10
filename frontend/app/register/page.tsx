@@ -79,6 +79,13 @@ export default function LoginPage() {
             try {
               const res = await api.post('/auth/google', { access_token: tokenResponse.access_token });
               
+              if (res.data?.requiresTerms) {
+                setPendingAction({ type: 'google', payload: { access_token: tokenResponse.access_token } });
+                setTermsChecked(false);
+                setShowTermsModal(true);
+                return;
+              }
+
               const token = res.data?.token;
               if (token && typeof window !== 'undefined') {
                 localStorage.setItem('token', token);
@@ -86,13 +93,7 @@ export default function LoginPage() {
                 window.location.replace('/dashboard');
               }
             } catch (err: any) {
-              if (err.response?.data?.requiresTerms) {
-                setPendingAction({ type: 'google', payload: { access_token: tokenResponse.access_token } });
-                setTermsChecked(false);
-                setShowTermsModal(true);
-              } else {
-                setError(`Google Login Failed: ${err.response?.data?.error || err.message}`);
-              }
+              setError(`Google Login Failed: ${err.response?.data?.error || err.message}`);
             } finally {
               setGoogleLoading(false);
             }
@@ -126,7 +127,7 @@ export default function LoginPage() {
     setShowTermsModal(false); 
 
     try {
-      let res: any; // 🚀 FIXED: Explicitly typed to prevent TypeScript errors
+      let res: any;
       if (pendingAction.type === 'manual') {
         res = await api.post('/auth/register', { ...pendingAction.payload, hasAcceptedTerms: true });
       } else if (pendingAction.type === 'google') {
@@ -136,7 +137,7 @@ export default function LoginPage() {
       const token = res?.data?.token;
       if (token && typeof window !== 'undefined') {
         localStorage.setItem('token', token);
-        login(token, res?.data); // 🚀 FIXED: Added optional chaining just to be safe
+        login(token, res?.data);
         window.location.replace('/dashboard');
       }
     } catch (err: any) {
@@ -150,8 +151,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#090B10] flex items-center justify-center p-4 relative">
       
       {showTermsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className="bg-[#11141D] border border-[#b026ff]/50 rounded-3xl w-full max-w-2xl flex flex-col shadow-[0_0_50px_rgba(176,38,255,0.2)] overflow-hidden animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="bg-[#11141D] border border-[#b026ff]/50 rounded-3xl w-full max-w-2xl flex flex-col shadow-[0_0_50px_rgba(176,38,255,0.2)] overflow-hidden animate-in zoom-in-95 duration-300 relative z-[1000]">
             <div className="flex items-center justify-between p-6 border-b border-gray-800 bg-[#0A0C10]">
               <div className="flex items-center gap-3">
                 <Gamepad2 className="text-[#b026ff]" size={28} />
