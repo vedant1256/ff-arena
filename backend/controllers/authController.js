@@ -20,7 +20,6 @@ const registerUser = async (req, res) => {
   try {
     const { username, email, password, hasAcceptedTerms } = req.body;
 
-    // 🚀 Checkbox is STILL required for new registrations
     if (!hasAcceptedTerms) return res.status(400).json({ error: "You must read and agree to the Arena Rules & Terms." });
 
     const userExists = await prisma.user.findFirst({ where: { OR: [{ email }, { username }] } });
@@ -29,7 +28,6 @@ const registerUser = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
     
-    // Auto-Assign Admin
     const assignedRole = ADMIN_EMAILS.includes(email.toLowerCase()) ? 'ADMIN' : 'PLAYER';
 
     const user = await prisma.user.create({
@@ -49,17 +47,14 @@ const registerUser = async (req, res) => {
   }
 };
 
-// 2. Standard Login (WITH AUTO-UPGRADE)
+// 2. Standard Login
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // 🚀 FIXED: Removed the checkbox requirement for logging in!
     let user = await prisma.user.findUnique({ where: { email } });
 
     if (user && (await bcrypt.compare(password, user.passwordHash))) {
-      
-      // AUTO-UPGRADE LEGACY ACCOUNTS TO ADMIN
       const isAssignedAdmin = ADMIN_EMAILS.includes(user.email.toLowerCase());
       const needsAdminUpgrade = isAssignedAdmin && user.role !== 'ADMIN';
 
@@ -82,12 +77,11 @@ const loginUser = async (req, res) => {
   }
 };
 
-// 3. GOOGLE OAUTH LOGIN (WITH AUTO-UPGRADE)
+// 3. GOOGLE OAUTH LOGIN (WITH SMART TERMS GATING)
 const googleLogin = async (req, res) => {
   try {
-    const { access_token } = req.body;
+    const { access_token, hasAcceptedTerms } = req.body;
 
-    // 🚀 FIXED: Removed checkbox requirement. Google login acts as implicit agreement.
     if (!access_token) return res.status(400).json({ error: "Google token missing from request." });
 
     const googleResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
@@ -103,6 +97,14 @@ const googleLogin = async (req, res) => {
     const isAssignedAdmin = ADMIN_EMAILS.includes(googleUser.email.toLowerCase());
 
     if (!user) {
+      // 🚀 NEW: If they are a brand new user but haven't accepted terms yet, send a 403 signal to the frontend!
+      if (!hasAcceptedTerms) {
+        return res.status(403).json({ 
+          requiresTerms: true, 
+          error: "Please accept the Arena Rules to create your account." 
+        });
+      }
+
       const safeName = googleUser.name ? googleUser.name.replace(/[^a-zA-Z0-9]/g, '') : googleUser.email.split('@')[0];
       const uniqueUsername = `${safeName}${Math.floor(Math.random() * 10000)}`;
 
@@ -117,7 +119,6 @@ const googleLogin = async (req, res) => {
         }
       });
     } else {
-       // AUTO-UPGRADE LEGACY ACCOUNTS TO ADMIN
        const needsAdminUpgrade = isAssignedAdmin && user.role !== 'ADMIN';
 
        if (!user.hasAcceptedTerms || needsAdminUpgrade) {
@@ -138,7 +139,6 @@ const googleLogin = async (req, res) => {
   }
 };
 
-// 4. Get Current User Data
 const getMe = async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
