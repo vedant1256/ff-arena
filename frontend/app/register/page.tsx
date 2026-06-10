@@ -6,10 +6,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '../../lib/axios';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Gamepad2, Mail, Lock, User, Crosshair } from 'lucide-react';
+import { Gamepad2, Mail, Lock, User, Crosshair, CheckSquare, Square } from 'lucide-react';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({ username: '', email: '', password: '', freeFireUid: '' });
+  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false); // 🚀 NEW: Legal compliance state
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -22,10 +23,16 @@ export default function RegisterPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!hasAcceptedTerms) {
+      setError('You must read and agree to the Arena Rules & Terms.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const payload = { ...formData };
+      const payload = { ...formData, hasAcceptedTerms: true }; // 🚀 NEW: Attaching legal consent
       if (payload.freeFireUid === '') {
         delete (payload as any).freeFireUid;
       }
@@ -92,10 +99,22 @@ export default function RegisterPage() {
             </div>
           </div>
 
+          {/* 🚀 NEW: Integrated Checkbox */}
+          <div className="pt-2">
+            <button type="button" onClick={() => setHasAcceptedTerms(!hasAcceptedTerms)} className="flex items-start gap-3 w-full text-left group">
+              <div className="mt-0.5 flex-shrink-0">
+                {hasAcceptedTerms ? <CheckSquare size={20} className="text-[#00F0FF]" /> : <Square size={20} className="text-gray-600 group-hover:text-gray-400 transition" />}
+              </div>
+              <span className={`text-xs leading-relaxed transition ${hasAcceptedTerms ? 'text-gray-200' : 'text-gray-500'}`}>
+                I have read, understood, and legally agree to abide by the FF Arena Rules, Anti-Cheat Guidelines, and Refund Policy.
+              </span>
+            </button>
+          </div>
+
           <button 
             type="submit" 
-            disabled={isLoading}
-            className="w-full bg-gradient-to-r from-[#b026ff]/20 to-[#b026ff]/10 hover:from-[#b026ff]/30 hover:to-[#b026ff]/20 border border-[#b026ff]/50 text-[#b026ff] font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 mt-4"
+            disabled={isLoading || !hasAcceptedTerms}
+            className={`w-full font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 mt-4 ${hasAcceptedTerms ? 'bg-gradient-to-r from-[#b026ff]/20 to-[#b026ff]/10 hover:from-[#b026ff]/30 hover:to-[#b026ff]/20 border border-[#b026ff]/50 text-[#b026ff]' : 'bg-gray-800 text-gray-600 border border-gray-700 cursor-not-allowed'}`}
           >
             {isLoading ? 'ENLISTING...' : 'ENLIST NOW'}
           </button>
