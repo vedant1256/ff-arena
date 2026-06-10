@@ -39,8 +39,10 @@ export default function LoginPage() {
     try {
       let res;
       if (isLogin) {
-        res = await api.post('/auth/login', { email, password, hasAcceptedTerms: true });
+        // 🚀 FIXED: No longer sending terms requirement for returning logins
+        res = await api.post('/auth/login', { email, password });
       } else {
+        // Registration still legally requires the terms flag
         res = await api.post('/auth/register', { username, email, password, hasAcceptedTerms: true });
       }
       
@@ -48,7 +50,6 @@ export default function LoginPage() {
       if (token && typeof window !== 'undefined') {
         localStorage.setItem('token', token);
         login(token, res.data);
-        // 🚀 HARD REDIRECT: Wipes all Next.js cache loops and forces clean entry
         window.location.replace('/dashboard');
       } else {
         throw new Error('Token missing from server response.');
@@ -77,16 +78,15 @@ export default function LoginPage() {
         callback: async (tokenResponse: any) => {
           if (tokenResponse && tokenResponse.access_token) {
             try {
+              // 🚀 FIXED: Removed terms requirement from Google Login
               const res = await api.post('/auth/google', {
-                access_token: tokenResponse.access_token,
-                hasAcceptedTerms: true
+                access_token: tokenResponse.access_token
               });
               
               const token = res.data?.token;
               if (token && typeof window !== 'undefined') {
                 localStorage.setItem('token', token);
                 login(token, res.data);
-                // 🚀 HARD REDIRECT: Wipes all Next.js cache loops
                 window.location.replace('/dashboard');
               }
             } catch (err: any) {
@@ -118,12 +118,15 @@ export default function LoginPage() {
   };
 
   const handleDecline = () => {
-    window.location.href = 'https://www.google.com';
+    // If they decline, just send them back to the Login screen
+    setIsLogin(true);
+    setGateChecked(false);
   };
 
   return (
     <div className="min-h-screen bg-[#090B10] flex items-center justify-center p-4">
-      {!gatePassed && (
+      {/* 🚀 FIXED: The Gate ONLY shows if they are trying to Register AND haven't passed it yet */}
+      {!isLogin && !gatePassed ? (
         <div className="bg-[#11141D] border border-[#b026ff]/30 rounded-2xl w-full max-w-3xl flex flex-col shadow-[0_0_50px_rgba(176,38,255,0.15)] overflow-hidden animate-in fade-in duration-500">
           <div className="flex items-center gap-3 p-6 border-b border-gray-800 bg-[#0A0C10]">
             <Gamepad2 className="text-[#b026ff]" size={28} />
@@ -134,7 +137,7 @@ export default function LoginPage() {
               <ShieldAlert className="text-red-500 flex-shrink-0" size={24} />
               <div>
                 <h3 className="text-red-500 font-bold uppercase tracking-wider mb-1">Action Required</h3>
-                <p className="text-red-400/80 text-xs">You must read and agree to the platform rules before you are allowed to log in or create an account.</p>
+                <p className="text-red-400/80 text-xs">You must read and agree to the platform rules before you are allowed to create an account.</p>
               </div>
             </div>
             <div>
@@ -171,7 +174,7 @@ export default function LoginPage() {
             </button>
             <div className="flex flex-col sm:flex-row gap-4">
               <button onClick={handleDecline} className="flex-1 py-3.5 rounded-xl font-bold text-gray-400 border border-gray-800 hover:bg-gray-800 hover:text-white transition uppercase tracking-wider">
-                Decline & Exit
+                Decline & Go Back
               </button>
               <button disabled={!gateChecked} onClick={() => setGatePassed(true)} className={`flex-1 py-3.5 rounded-xl font-extrabold uppercase tracking-widest transition-all ${gateChecked ? 'bg-[#b026ff] hover:bg-[#901ecc] text-white shadow-[0_0_20px_rgba(176,38,255,0.4)] active:scale-95' : 'bg-gray-800 text-gray-600 cursor-not-allowed'}`}>
                 Accept & Proceed
@@ -179,9 +182,8 @@ export default function LoginPage() {
             </div>
           </div>
         </div>
-      )}
-
-      {gatePassed && (
+      ) : (
+        /* The Main Login / Registration Form */
         <div className="w-full max-w-md bg-[#11141D] border border-gray-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-[#b026ff] blur-[10px]"></div>
           <div className="flex flex-col items-center mb-8">
@@ -232,7 +234,13 @@ export default function LoginPage() {
           <div className="mt-8 text-center border-t border-gray-800/50 pt-6">
             <p className="text-sm text-gray-500">
               {isLogin ? "Don't have an account?" : "Already have an account?"}
-              <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="ml-2 text-[#00F0FF] font-bold hover:underline">
+              <button 
+                onClick={() => { 
+                  setIsLogin(!isLogin); 
+                  setError(''); 
+                }} 
+                className="ml-2 text-[#00F0FF] font-bold hover:underline"
+              >
                 {isLogin ? 'Sign Up' : 'Log In'}
               </button>
             </p>

@@ -20,6 +20,7 @@ const registerUser = async (req, res) => {
   try {
     const { username, email, password, hasAcceptedTerms } = req.body;
 
+    // 🚀 Checkbox is STILL required for new registrations
     if (!hasAcceptedTerms) return res.status(400).json({ error: "You must read and agree to the Arena Rules & Terms." });
 
     const userExists = await prisma.user.findFirst({ where: { OR: [{ email }, { username }] } });
@@ -51,10 +52,9 @@ const registerUser = async (req, res) => {
 // 2. Standard Login (WITH AUTO-UPGRADE)
 const loginUser = async (req, res) => {
   try {
-    const { email, password, hasAcceptedTerms } = req.body;
+    const { email, password } = req.body;
 
-    if (!hasAcceptedTerms) return res.status(400).json({ error: "You must read and agree to the Arena Rules & Terms." });
-
+    // 🚀 FIXED: Removed the checkbox requirement for logging in!
     let user = await prisma.user.findUnique({ where: { email } });
 
     if (user && (await bcrypt.compare(password, user.passwordHash))) {
@@ -85,9 +85,9 @@ const loginUser = async (req, res) => {
 // 3. GOOGLE OAUTH LOGIN (WITH AUTO-UPGRADE)
 const googleLogin = async (req, res) => {
   try {
-    const { access_token, hasAcceptedTerms } = req.body;
+    const { access_token } = req.body;
 
-    if (!hasAcceptedTerms) return res.status(400).json({ error: "You must agree to the Terms." });
+    // 🚀 FIXED: Removed checkbox requirement. Google login acts as implicit agreement.
     if (!access_token) return res.status(400).json({ error: "Google token missing from request." });
 
     const googleResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
