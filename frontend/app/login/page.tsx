@@ -20,7 +20,6 @@ export default function LoginPage() {
   const { login } = useAuthStore();
   const router = useRouter();
 
-  // Primary Form States (Always visible first)
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -40,7 +39,6 @@ export default function LoginPage() {
     setError('');
 
     if (isLogin) {
-      // Standard Returning User Login (No terms needed)
       setLoading(true);
       try {
         const res = await api.post('/auth/login', { email, password });
@@ -56,7 +54,7 @@ export default function LoginPage() {
         setLoading(false);
       }
     } else {
-      // PROGRESSIVE ONBOARDING: User filled the manual form. Save data and show Terms Modal!
+      // User filled details -> Save them in state -> Show Terms Modal
       setPendingAction({ type: 'manual', payload: { username, email, password } });
       setTermsChecked(false);
       setShowTermsModal(true);
@@ -83,7 +81,7 @@ export default function LoginPage() {
             try {
               const res = await api.post('/auth/google', { access_token: tokenResponse.access_token });
               
-              // PROGRESSIVE ONBOARDING: Backend says Google user is NEW. Show Terms Modal!
+              // Backend says Google user is NEW -> Show Terms Modal
               if (res.data?.requiresTerms) {
                 setPendingAction({ type: 'google', payload: { access_token: tokenResponse.access_token } });
                 setTermsChecked(false);
@@ -91,7 +89,7 @@ export default function LoginPage() {
                 return;
               }
 
-              // Backend says Google user is RETURNING. Log them in instantly!
+              // Backend says Google user is RETURNING -> Log them in!
               const token = res.data?.token;
               if (token && typeof window !== 'undefined') {
                 localStorage.setItem('token', token);
@@ -127,11 +125,9 @@ export default function LoginPage() {
     }
   };
 
-  // Final confirmation: Fires after they check the modal box
   const confirmTermsAndProceed = async () => {
     setLoading(true);
     setError('');
-    setShowTermsModal(false); 
 
     try {
       let res: any;
@@ -149,15 +145,21 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Registration failed. Please try again.');
+      setShowTermsModal(false); // Hide modal on error so they can see the error
     } finally {
       setLoading(false);
     }
   };
 
+  const handleDecline = () => {
+    setShowTermsModal(false);
+    setPendingAction(null);
+  };
+
   return (
     <div className="min-h-screen bg-[#090B10] flex items-center justify-center p-4 relative">
       
-      {/* 🚀 THE TERMS MODAL (HIDDEN until triggered by button click) */}
+      {/* 🚀 THE TERMS MODAL (Hidden by default, pops up after clicking Initialize/Google) */}
       {showTermsModal && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
           <div className="bg-[#11141D] border border-[#b026ff]/50 rounded-3xl w-full max-w-2xl flex flex-col shadow-[0_0_50px_rgba(176,38,255,0.2)] overflow-hidden animate-in zoom-in-95 duration-300 relative z-[1000]">
@@ -166,7 +168,7 @@ export default function LoginPage() {
                 <Gamepad2 className="text-[#b026ff]" size={28} />
                 <h1 className="text-xl font-extrabold text-white tracking-widest uppercase">Arena Rules</h1>
               </div>
-              <button onClick={() => setShowTermsModal(false)} className="text-gray-500 hover:text-white transition">
+              <button onClick={handleDecline} className="text-gray-500 hover:text-white transition">
                 <X size={24} />
               </button>
             </div>
@@ -194,13 +196,6 @@ export default function LoginPage() {
                   <li><strong>No Teaming:</strong> Teaming in Solo modes is strictly forbidden.</li>
                 </ul>
               </div>
-              <div>
-                <h3 className="font-bold text-white mb-2 text-base">3. Wallets & Refunds</h3>
-                <ul className="list-disc pl-5 space-y-1 text-gray-400">
-                  <li>Entry fees are <strong>non-refundable</strong> unless the admin cancels the match.</li>
-                  <li>Missing the match start time forfeits your entry fee.</li>
-                </ul>
-              </div>
             </div>
 
             <div className="p-6 bg-[#0A0C10] border-t border-gray-800">
@@ -212,9 +207,12 @@ export default function LoginPage() {
                   I have read, understood, and legally agree to abide by the FF Arena Rules, Anti-Cheat Guidelines, and Refund Policy.
                 </span>
               </button>
-              <div className="flex gap-4">
-                <button disabled={!termsChecked || loading} onClick={confirmTermsAndProceed} className={`w-full py-4 rounded-xl font-extrabold uppercase tracking-widest transition-all flex justify-center items-center gap-2 ${termsChecked ? 'bg-[#b026ff] hover:bg-[#901ecc] text-white shadow-[0_0_20px_rgba(176,38,255,0.4)] active:scale-95' : 'bg-gray-800 text-gray-600 cursor-not-allowed'}`}>
-                  {loading ? <Loader2 className="animate-spin" size={20} /> : 'Accept & Create Account'}
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button onClick={handleDecline} className="flex-1 py-4 rounded-xl font-bold text-gray-400 border border-gray-800 hover:bg-gray-800 hover:text-white transition uppercase tracking-wider">
+                  Decline & Cancel
+                </button>
+                <button disabled={!termsChecked || loading} onClick={confirmTermsAndProceed} className={`flex-1 py-4 rounded-xl font-extrabold uppercase tracking-widest transition-all flex justify-center items-center gap-2 ${termsChecked ? 'bg-[#b026ff] hover:bg-[#901ecc] text-white shadow-[0_0_20px_rgba(176,38,255,0.4)] active:scale-95' : 'bg-gray-800 text-gray-600 cursor-not-allowed'}`}>
+                  {loading ? <Loader2 className="animate-spin" size={20} /> : 'Accept & Create'}
                 </button>
               </div>
             </div>
@@ -222,7 +220,7 @@ export default function LoginPage() {
         </div>
       )}
 
-      {/* 🚀 THE MAIN SIGN IN / SIGN UP FORM (Always visible immediately on load!) */}
+      {/* 🚀 THE MAIN FORM (Always visible first!) */}
       <div className="w-full max-w-md bg-[#11141D] border border-gray-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-[#b026ff] blur-[10px]"></div>
         <div className="flex flex-col items-center mb-8">
@@ -233,7 +231,7 @@ export default function LoginPage() {
           <p className="text-gray-500 text-sm mt-1">{isLogin ? 'Welcome back, Champion' : 'Create your gaming legacy'}</p>
         </div>
 
-        {error && (
+        {error && !showTermsModal && (
           <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-3 rounded-lg text-sm text-center mb-6 font-medium flex items-center justify-center gap-2">
             <ShieldAlert size={16} /> {error}
           </div>
@@ -274,10 +272,7 @@ export default function LoginPage() {
           <p className="text-sm text-gray-500">
             {isLogin ? "Don't have an account?" : "Already have an account?"}
             <button 
-              onClick={() => { 
-                setIsLogin(!isLogin); 
-                setError(''); 
-              }} 
+              onClick={() => { setIsLogin(!isLogin); setError(''); }} 
               className="ml-2 text-[#00F0FF] font-bold hover:underline"
             >
               {isLogin ? 'Sign Up' : 'Log In'}
