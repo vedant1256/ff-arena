@@ -15,6 +15,8 @@ interface Tournament {
   id: string; title: string; gameName: string; map: string; teamMode: string;
   minLevel: number; entryFee: number; prizePool: number;
   currentParticipants: number; maxParticipants: number; status: string; scheduledAt: string;
+  roomId?: string; 
+  roomPassword?: string;
 }
 
 const ADMIN_EMAILS = [
@@ -55,7 +57,6 @@ export default function DashboardPage() {
         login(currentToken as any, serverUser as any); 
       }
     } catch (error: any) {
-      console.error("Profile sync error:", error);
       if (error.response?.status === 401) {
         logout();
         router.push('/login');
@@ -67,53 +68,38 @@ export default function DashboardPage() {
       const walletRes = await api.get('/wallet', config);
       setBalance(walletRes.data.balance || 0);
       setTransactions(walletRes.data.transactions || []);
-    } catch (error) {
-      console.error("Wallet fetch error:", error);
-    }
+    } catch (error) {}
 
     try {
-      const tournamentsRes = await api.get('/tournaments', config);
+      // 🚀 FIXED: Added Cache Buster to forcefully load the latest coordinates
+      const tournamentsRes = await api.get(`/tournaments?_t=${new Date().getTime()}`, config);
       setTournaments(tournamentsRes.data);
-    } catch (error) {
-      console.error("Tournament fetch error:", error);
-    } finally {
+    } catch (error) {} finally {
       setLoading(false);
     }
   }, [login, logout, router]);
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    
     if (!user && !token) {
       router.push('/login');
       return;
     }
-    
     fetchDashboardData();
 
-    // 🚀 DYNAMIC URL: Connects to live backend for WebSockets
     const backendUrl = process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace('/api', '') : 'http://localhost:5000';
-    
-    const socket = io(backendUrl, {
-      transports: ['websocket', 'polling'],
-    });
-
-    socket.on('connect', () => console.log('Socket connected successfully!'));
+    const socket = io(backendUrl, { transports: ['websocket', 'polling'] });
 
     socket.on('roomDataReleased', (data) => {
       setLiveRoomData(data);
+      fetchDashboardData(); // Instantly refresh cards when broadcast happens!
       setTimeout(() => setLiveRoomData(null), 600000); 
     });
 
-    return () => {
-      socket.disconnect(); 
-    };
+    return () => { socket.disconnect(); };
   }, [user, router, fetchDashboardData]);
 
-  const handleLogout = () => {
-    logout();
-    router.push('/login');
-  };
+  const handleLogout = () => { logout(); router.push('/login'); };
 
   const handleJoinTournament = async (tournamentId: string, entryFee: number) => {
     if (balance < entryFee) return alert(`Insufficient funds! You need ₹${entryFee}.`);
@@ -121,9 +107,7 @@ export default function DashboardPage() {
 
     try {
       const currentToken = localStorage.getItem('token') || '';
-      await api.post(`/tournaments/${tournamentId}/join`, {}, {
-        headers: { Authorization: `Bearer ${currentToken}` }
-      });
+      await api.post(`/tournaments/${tournamentId}/join`, {}, { headers: { Authorization: `Bearer ${currentToken}` } });
       alert('Successfully secured your slot!');
       fetchDashboardData(); 
     } catch (err: any) {
@@ -150,7 +134,7 @@ export default function DashboardPage() {
       {liveRoomData && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-full max-w-md bg-[#11141D] border border-[#00F0FF] rounded-2xl shadow-[0_0_30px_rgba(0,240,255,0.3)] p-6 animate-pulse-glow">
           <div className="flex items-center gap-3 mb-4 text-[#00F0FF]"><AlertTriangle className="animate-bounce" /><h2 className="text-xl font-bold uppercase tracking-widest">Match Starting!</h2></div>
-          <p className="text-gray-400 text-sm mb-4">Room details for <strong className="text-white">{liveRoomData.title}</strong> have just been released.</p>
+          <p className="text-gray-400 text-sm mb-4">Room details for <strong className="text-white">{liveRoomData.title || "the match"}</strong> have just been released.</p>
           <div className="space-y-3">
             <div className="flex justify-between items-center bg-[#0A0C10] border border-gray-800 rounded-lg p-3">
               <div><p className="text-xs text-gray-500 uppercase font-bold">Room ID</p><p className="text-lg font-bold text-white tracking-wider">{liveRoomData.roomId}</p></div>
@@ -179,7 +163,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Refactored Single-Line Rules Section */}
       <div className="bg-[#11141D] border border-red-900/40 rounded-2xl p-4 md:p-6 mb-8 relative z-10 shadow-[0_0_20px_rgba(220,38,38,0.05)]">
         <h2 className="text-lg md:text-xl font-bold text-red-500 mb-4 flex items-center gap-2 uppercase tracking-wider">
           <ShieldAlert size={20} className="text-red-500" /> Arena Rules & Guidelines
@@ -191,31 +174,21 @@ export default function DashboardPage() {
           </li>
           <li className="flex items-start md:items-center gap-3 bg-[#0A0C10] p-3 rounded-lg border border-gray-800">
             <span className="text-red-500 font-bold mt-0.5 md:mt-0 leading-none">•</span>
-            <span><strong>Mobile Only:</strong> Platform is for mobile players only. Violators will be kicked and entry fee forfeited.</span>
-          </li>
-          <li className="flex items-start md:items-center gap-3 bg-[#0A0C10] p-3 rounded-lg border border-gray-800">
-            <span className="text-red-500 font-bold mt-0.5 md:mt-0 leading-none">•</span>
             <span><strong>UID Verification:</strong> In-game Free Fire UID must perfectly match your saved Profile UID for payouts.</span>
           </li>
           <li className="flex items-start md:items-center gap-3 bg-[#0A0C10] p-3 rounded-lg border border-gray-800">
             <span className="text-red-500 font-bold mt-0.5 md:mt-0 leading-none">•</span>
             <span><strong>Zero Tolerance:</strong> Hacks, scripts, glitches, or teaming up will result in a permanent ban.</span>
           </li>
-          <li className="flex items-start md:items-center gap-3 bg-[#0A0C10] p-3 rounded-lg border border-gray-800">
-            <span className="text-red-500 font-bold mt-0.5 md:mt-0 leading-none">•</span>
-            <span><strong>Timings:</strong> Join exactly at the scheduled time. Admin decisions are final.</span>
-          </li>
         </ul>
       </div>
 
-      {/* Tabs */}
       <div className="flex flex-wrap gap-2 md:gap-3 mb-8 relative z-10">
         {['All', 'Solo', 'Duo', 'Squad', 'Clash Squad', 'Lone Wolf'].map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-1.5 rounded-full text-xs md:text-sm font-semibold transition-all ${activeTab === tab ? 'bg-[#00F0FF]/15 text-[#00F0FF] border border-[#00F0FF]/50' : 'bg-transparent text-gray-400 border border-gray-800 hover:border-gray-600'}`}>{tab}</button>
         ))}
       </div>
 
-      {/* Tournaments Grid */}
       {filteredTournaments.length === 0 ? (
         <div className="bg-[#11141D] border border-gray-800 rounded-2xl p-10 text-center relative z-10"><p className="text-gray-500">No active {activeTab !== 'All' ? activeTab : ''} tournaments available. Please check back later.</p></div>
       ) : (
@@ -223,6 +196,9 @@ export default function DashboardPage() {
           {filteredTournaments.map((t) => {
             const fillPercentage = Math.min((t.currentParticipants / t.maxParticipants) * 100, 100);
             const isOpen = t.status === 'REGISTRATION_OPEN';
+            
+            // Checks if the user is currently viewing this tournament AND they have paid 
+            const hasRoomData = Boolean(t.roomId && t.roomPassword);
 
             return (
               <div key={t.id} className="bg-[#11141D] border border-gray-800 rounded-2xl p-5 flex flex-col hover:border-gray-700 transition-colors">
@@ -237,12 +213,38 @@ export default function DashboardPage() {
                   <div><p className="text-gray-600 text-xs font-bold uppercase tracking-wider mb-1">Entry Fee</p><p className="text-yellow-500 font-bold text-lg">₹{t.entryFee}</p></div>
                   <div className="text-right"><p className="text-gray-600 text-xs font-bold uppercase tracking-wider mb-1">Prize Pool</p><p className="text-[#00F0FF] font-bold text-lg">₹{t.prizePool}</p></div>
                 </div>
-                <div className="mb-6">
+                
+                <div className="mb-4">
                   <div className="flex justify-between text-xs text-gray-400 mb-2"><span>Players</span><span>{t.currentParticipants}/{t.maxParticipants}</span></div>
                   <div className="w-full bg-gray-800 rounded-full h-1.5"><div className="bg-[#00F0FF] h-1.5 rounded-full transition-all duration-500" style={{ width: `${fillPercentage}%`, boxShadow: '0 0 10px rgba(0, 240, 255, 0.5)' }}></div></div>
                 </div>
-                <button onClick={() => handleJoinTournament(t.id, t.entryFee)} disabled={!isOpen} className={`w-full py-3 rounded-xl font-bold transition-all active:scale-95 ${isOpen ? 'bg-gradient-to-r from-[#00F0FF]/20 to-[#00F0FF]/10 border border-[#00F0FF]/50 text-[#00F0FF] hover:bg-[#00F0FF]/30' : 'bg-gray-800/50 text-gray-500 cursor-not-allowed border border-gray-800'}`}>
-                  {isOpen ? 'JOIN MATCH' : 'MATCH LOCKED'}
+
+                {/* 🚀 FIXED: Dynamic UI Box showing the Room Coordinates securely below the progress bar */}
+                {hasRoomData && (
+                  <div className="mb-6 bg-gradient-to-r from-[#b026ff]/10 to-[#00F0FF]/10 border border-[#b026ff]/30 p-3 rounded-xl animate-in fade-in">
+                    <p className="text-xs text-[#00F0FF] font-bold uppercase tracking-wider mb-2 flex items-center justify-between">
+                       <span>Lobby Active</span>
+                       <span className="text-[10px] text-gray-400">Do not share</span>
+                    </p>
+                    <div className="flex justify-between items-center bg-[#0A0C10] px-3 py-2 rounded-lg border border-gray-800">
+                      <span className="text-gray-400 text-xs">ID: <span className="text-white font-mono font-bold ml-1 select-all cursor-pointer" onClick={() => copyToClipboard(t.roomId || '')}>{t.roomId}</span></span>
+                      <span className="text-gray-400 text-xs">Pass: <span className="text-[#00F0FF] font-mono font-bold ml-1 select-all cursor-pointer" onClick={() => copyToClipboard(t.roomPassword || '')}>{t.roomPassword}</span></span>
+                    </div>
+                  </div>
+                )}
+
+                <button 
+                  onClick={() => handleJoinTournament(t.id, t.entryFee)} 
+                  disabled={!isOpen || hasRoomData} 
+                  className={`w-full mt-auto py-3 rounded-xl font-bold transition-all active:scale-95 ${
+                    hasRoomData 
+                      ? 'bg-green-500/10 text-green-500 border border-green-500/30 cursor-default'
+                      : isOpen 
+                        ? 'bg-gradient-to-r from-[#00F0FF]/20 to-[#00F0FF]/10 border border-[#00F0FF]/50 text-[#00F0FF] hover:bg-[#00F0FF]/30' 
+                        : 'bg-gray-800/50 text-gray-500 cursor-not-allowed border border-gray-800'
+                  }`}
+                >
+                  {hasRoomData ? '✅ REGISTERED' : (isOpen ? 'JOIN MATCH' : 'MATCH LOCKED')}
                 </button>
               </div>
             );

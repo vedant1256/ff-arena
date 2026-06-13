@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from "@/lib/axios";
 import { useAuthStore } from "@/store/useAuthStore"; 
-import { ShieldAlert, PlusCircle, Users, Ban, CheckCircle, ArrowLeft, Radio, Save, Trophy, Trash2 } from 'lucide-react';
+import { ShieldAlert, PlusCircle, Users, Ban, CheckCircle, ArrowLeft, Radio, Save, Trophy, Trash2, Eye } from 'lucide-react';
 
 const getDefaultDateTime = () => {
   const now = new Date();
@@ -39,8 +39,10 @@ export default function AdminPage() {
   const [pMessage, setPMessage] = useState('');
   const [editData, setEditData] = useState<{[key: string]: { roomId: string, roomPassword: string, status: string }}>({});
   const [winnerInputs, setWinnerInputs] = useState<{[key: string]: string}>({});
+  
+  // 🚀 NEW: State to track which tournament's player list is open
+  const [showPlayersFor, setShowPlayersFor] = useState<string | null>(null);
 
-  // 🔒 STRICT VERIFICATION WITH 401 LOGOUT FAIL-SAFE
   useEffect(() => {
     const verifyAdminAccess = async () => {
       const currentToken = typeof window !== 'undefined' ? localStorage.getItem('token') || '' : '';
@@ -59,11 +61,7 @@ export default function AdminPage() {
           router.push('/dashboard');
         }
       } catch (err: any) {
-        console.error("Auth check failed:", err);
-        // 🔥 If the token is dead, wipe the state and go to login
-        if (err.response?.status === 401) {
-          logout();
-        }
+        if (err.response?.status === 401) logout();
         router.push('/login');
       } finally {
         setIsCheckingAuth(false);
@@ -119,7 +117,7 @@ export default function AdminPage() {
       
       const data = editData[tournamentId];
       await api.put(`/tournaments/${tournamentId}`, { ...data, isRoomReleased }, config);
-      if (isRoomReleased) alert("🚨 ROOM DETAILS BROADCASTED LIVE TO ALL PLAYERS!");
+      if (isRoomReleased) alert("🚨 ROOM DETAILS BROADCASTED LIVE TO ALL PAID PLAYERS!");
       else alert("Tournament saved.");
       fetchTournaments(config);
     } catch (err: any) { alert(err.response?.data?.error || 'Failed to update match.'); }
@@ -213,7 +211,6 @@ export default function AdminPage() {
         </button>
       </div>
 
-      {/* TOURNAMENTS TAB */}
       {activeTab === 'TOURNAMENTS' && (
         <div className="space-y-8">
           <div className="bg-[#11141D] p-8 rounded-2xl border border-gray-800/60 shadow-xl">
@@ -285,7 +282,7 @@ export default function AdminPage() {
                         </h3>
                         <p className="text-xs text-gray-500">{new Date(t.scheduledAt).toLocaleString()} | <span className="text-[#00F0FF]">Prize: ₹{t.prizePool}</span></p>
                       </div>
-                      <div className="flex gap-2 items-center">
+                      <div className="flex flex-wrap gap-2 items-center">
                         <select 
                           disabled={isCompleted}
                           value={editData[t.id]?.status || t.status} 
@@ -300,6 +297,14 @@ export default function AdminPage() {
                           {t.currentParticipants}/{t.maxParticipants} Registered
                         </span>
                         
+                        {/* 🚀 NEW: View Players Button */}
+                        <button 
+                          onClick={() => setShowPlayersFor(showPlayersFor === t.id ? null : t.id)}
+                          className="flex items-center gap-1 bg-[#00F0FF]/10 text-[#00F0FF] hover:bg-[#00F0FF]/20 border border-[#00F0FF]/30 px-2 py-1.5 rounded text-xs font-bold transition"
+                        >
+                          <Eye size={14} /> View Players
+                        </button>
+
                         <button 
                           onClick={() => handleDeleteTournament(t.id)} 
                           title="Delete Tournament Permanently"
@@ -309,6 +314,27 @@ export default function AdminPage() {
                         </button>
                       </div>
                     </div>
+
+                    {/* 🚀 NEW: Registered Players List Dropdown */}
+                    {showPlayersFor === t.id && (
+                      <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-4 animate-in slide-in-from-top-2">
+                        <h4 className="text-white font-bold mb-3 text-sm flex items-center gap-2">
+                          <Users size={16} className="text-[#00F0FF]"/> Verified Participants (Cross-Check UIDs in Lobby)
+                        </h4>
+                        {t.participants && t.participants.length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                            {t.participants.map((p: any) => (
+                              <div key={p.id} className="bg-[#11141D] border border-gray-700 px-3 py-2 rounded flex justify-between items-center text-sm">
+                                <span className="text-gray-300 truncate max-w-[120px]">{p.username}</span>
+                                <span className="text-[#00F0FF] font-mono font-bold">{p.freeFireUid || 'N/A'}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-500 italic">No players registered yet.</p>
+                        )}
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                       <div className="space-y-2">
@@ -373,7 +399,6 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* PLAYERS TAB */}
       {activeTab === 'PLAYERS' && (
         <div className="bg-[#11141D] p-8 rounded-2xl border border-gray-800/60 shadow-xl">
           <h2 className="text-xl font-bold mb-6 text-white">Player Database</h2>

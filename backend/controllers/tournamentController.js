@@ -1,21 +1,114 @@
 // backend/controllers/tournamentController.js
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const jwt = require('jsonwebtoken'); 
 
-// 1. Fetch All Tournaments
+const ADMIN_EMAILS = [
+  "vedantjadhav30.7.2007@gmail.com",
+  "shrikrishnadevkar60@gmail.com",
+  "parthpronarkhede@gmail.com"
+];
+
+// 1. Fetch All Tournaments (WITH SMART PAYWALL & ADMIN DECODER)
 const getTournaments = async (req, res) => {
   try {
+    let userId = req.user?.id || null;
+    let userRole = req.user?.role || null;
+    let userEmail = req.user?.email || null;
+
+    // Manually decode token if req.user is missing (because it's a public route)
+    if (!userId && req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      try {
+        const token = req.headers.authorization.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+        if (user) {
+          userId = user.id;
+          userRole = user.role;
+          userEmail = user.email;
+        }
+      } catch (err) {
+        console.error("Token decode failed:", err.message);
+      }
+    }
+
+    // 🚀 FIXED: Backend now perfectly recognizes your email as an Admin!
+    const isAdmin = userRole === 'ADMIN' || (userEmail && ADMIN_EMAILS.includes(userEmail.toLowerCase()));
+
     const tournaments = await prisma.tournament.findMany({
-      orderBy: { scheduledAt: 'desc' }
+      orderBy: { scheduledAt: 'desc' },
+      include: { participants: { select: { id: true, username: true, freeFireUid: true } } }
     });
-    res.status(200).json(tournaments);
+    
+    // 🛡️ SECURE PAYWALL: Check participation for EACH tournament
+    const safeTournaments = tournaments.map(t => {
+      const isParticipant = userId && t.participants.some(p => p.id === userId);
+
+      if (isAdmin) {
+        return t; // Admin sees everything (Room details + Participant List)
+      } else if (isParticipant) {
+        // Paid player sees Room Details, but hide other players' private data
+        const { participants, ...participantData } = t;
+        return participantData; 
+      } else {
+        // Public/Unpaid player sees NO Room Details and NO participants list
+        const { roomId, roomPassword, participants, ...publicData } = t;
+        return publicData;
+      }
+    });
+
+    res.status(200).json(safeTournaments);
   } catch (error) {
     console.error("Fetch Tournaments Error:", error);
     res.status(500).json({ error: 'Failed to fetch tournaments' });
   }
 };
 
-// 2. Create a Tournament
+// 2. Fetch Single Tournament 
+const getTournamentById = async (req, res) => {
+  try {
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: req.params.id },
+      include: { participants: { select: { id: true } } } 
+    });
+
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+
+    let userId = req.user?.id || null;
+    let userRole = req.user?.role || null;
+    let userEmail = req.user?.email || null;
+
+    if (!userId && req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      try {
+        const token = req.headers.authorization.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+        if (user) {
+          userId = user.id;
+          userRole = user.role;
+          userEmail = user.email;
+        }
+      } catch (err) {
+        console.error("Soft Auth token decode failed:", err.message);
+      }
+    }
+
+    const isAdmin = userRole === 'ADMIN' || (userEmail && ADMIN_EMAILS.includes(userEmail.toLowerCase()));
+    const isParticipant = userId && tournament.participants.some(p => p.id === userId);
+
+    if (!isAdmin && !isParticipant) {
+      delete tournament.roomId;
+      delete tournament.roomPassword;
+    }
+
+    res.status(200).json(tournament);
+  } catch (error) {
+    console.error("Fetch Tournament By ID Error:", error);
+    res.status(500).json({ error: 'Failed to fetch tournament details' });
+  }
+};
+
+// 3. Create a Tournament
 const createTournament = async (req, res) => {
   try {
     const tournament = await prisma.tournament.create({
@@ -29,7 +122,7 @@ const createTournament = async (req, res) => {
   }
 };
 
-// 3. Join a Tournament
+// 4. Join a Tournament
 const joinTournament = async (req, res) => {
   try {
     const tournamentId = req.params.id;
@@ -82,7 +175,7 @@ const joinTournament = async (req, res) => {
   }
 };
 
-// 4. Update Tournament Details / Release Room
+// 5. Update Tournament Details
 const updateTournament = async (req, res) => {
   try {
     const { id } = req.params;
@@ -94,12 +187,7 @@ const updateTournament = async (req, res) => {
     });
 
     if (isRoomReleased && req.io) {
-      req.io.emit('roomDataReleased', {
-        tournamentId: tournament.id,
-        title: tournament.title,
-        roomId: tournament.roomId,
-        roomPassword: tournament.roomPassword
-      });
+      req.io.emit('roomDataReleased', { tournamentId: tournament.id });
     }
 
     res.status(200).json({ message: 'Tournament updated successfully!', tournament });
@@ -109,7 +197,7 @@ const updateTournament = async (req, res) => {
   }
 };
 
-// 5. Declare Match Winner & Disburse Prize Pool
+// 6. Declare Match Winner
 const declareWinner = async (req, res) => {
   try {
     const tournamentId = req.params.id;
@@ -117,28 +205,22 @@ const declareWinner = async (req, res) => {
 
     if (!winnerUid) return res.status(400).json({ error: "Winner Free Fire UID is required." });
 
-    // Find tournament and ensure it hasn't already been paid out
     const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
     if (!tournament) return res.status(404).json({ error: "Tournament not found." });
     if (tournament.status === 'COMPLETED') return res.status(400).json({ error: "Winner has already been declared for this match." });
 
-    // Find the player using their unique Free Fire Game UID
     const winner = await prisma.user.findFirst({ where: { freeFireUid: winnerUid } });
     if (!winner) return res.status(404).json({ error: `No player found on this platform with Free Fire UID: ${winnerUid}` });
 
-    // Execute heavy transaction: Pay the winner and close the match simultaneously
     await prisma.$transaction([
-      // A. Close the tournament status permanently
       prisma.tournament.update({
         where: { id: tournamentId },
         data: { status: 'COMPLETED' }
       }),
-      // B. Top up winner's account balance with the prize money
       prisma.user.update({
         where: { id: winner.id },
         data: { walletBalance: { increment: tournament.prizePool } }
       }),
-      // C. File a credit history ledger record for their wallet auditing
       prisma.transaction.create({
         data: {
           userId: winner.id,
@@ -156,18 +238,14 @@ const declareWinner = async (req, res) => {
   }
 };
 
-// 6. NEW: Delete a tournament permanently
+// 7. Delete a tournament
 const deleteTournament = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Check if tournament exists
     const tournament = await prisma.tournament.findUnique({ where: { id } });
     if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
 
-    // Delete it using Prisma
     await prisma.tournament.delete({ where: { id } });
-    
     res.status(200).json({ message: 'Tournament deleted successfully.' });
   } catch (error) {
     console.error("Delete Tournament Error:", error);
@@ -175,4 +253,4 @@ const deleteTournament = async (req, res) => {
   }
 };
 
-module.exports = { getTournaments, createTournament, joinTournament, updateTournament, declareWinner, deleteTournament };
+module.exports = { getTournaments, getTournamentById, createTournament, joinTournament, updateTournament, declareWinner, deleteTournament };

@@ -1,207 +1,228 @@
 // frontend/app/tournaments/[id]/page.tsx
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import toast from "react-hot-toast";
-import api from "@/lib/axios";
+import React, { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import api from '@/lib/axios';
 import { useAuthStore } from '@/store/useAuthStore';
-import Link from "next/link";
+import { Gamepad2, Users, Trophy, ShieldAlert, Key, Loader2, ArrowLeft, Crosshair, Map, CheckSquare, RefreshCw } from 'lucide-react';
+import { io } from 'socket.io-client';
 
-const TYPE_COLORS: Record<string, string> = {
-  Solo: "#00e5ff", Duo: "#7c3aed", Squad: "#10b981",
-  "Clash Squad": "#f59e0b", "BR Kill Race": "#ef4444",
-};
-
-function formatCountdown(ms: number): string {
-  if (ms <= 0) return "🔴 LIVE";
-  const h = Math.floor(ms / 3600000);
-  const m = Math.floor((ms % 3600000) / 60000);
-  const s = Math.floor((ms % 60000) / 1000);
-  return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
-}
-
-export default function TournamentDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const { user } = useAuthStore();
+export default function TournamentPage() {
+  const { id } = useParams();
   const router = useRouter();
-  const [tournament, setTournament] = useState<any | null>(null);
-  const [isJoined, setIsJoined] = useState(false);
+  const { user } = useAuthStore();
+
+  const [tournament, setTournament] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(0);
+  const [joinLoading, setJoinLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const fetchTournamentData = async () => {
+  // 🚀 FIXED: Added Cache Buster to forcefully override browser memory
+  const fetchTournament = async (isManualRefresh = false) => {
     try {
-      const res = await api.get(`/tournaments/${id}`);
-      const tData = res.data?.data || res.data;
-      setTournament(tData);
+      if (isManualRefresh) setJoinLoading(true);
+      const currentToken = localStorage.getItem('token') || '';
+      const config = currentToken ? { headers: { Authorization: `Bearer ${currentToken}` } } : {};
       
-      const startTime = tData.scheduledAt || tData.startTime;
-      if (startTime) {
-        setTimeLeft(new Date(startTime).getTime() - Date.now());
-      }
-
-      if (user && tData.participants) {
-        const alreadyJoined = tData.participants.some(
-          (p: any) => p.userId === user.id || p._id === user.id || p.id === user.id
-        );
-        setIsJoined(alreadyJoined);
-      }
-    } catch (err) {
-      toast.error("Failed to load tournament details");
+      // ?_t=... forces the browser to fetch a completely fresh version from the server
+      const res = await api.get(`/tournaments/${id}?_t=${new Date().getTime()}`, config);
+      setTournament(res.data);
+    } catch (err: any) {
+      setError('Failed to load tournament details.');
     } finally {
       setLoading(false);
+      if (isManualRefresh) setJoinLoading(false);
     }
   };
 
   useEffect(() => {
-    if (id) {
-      fetchTournamentData();
-    }
-  }, [id, user]);
+    fetchTournament();
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (tournament) {
-        const startTime = tournament.scheduledAt || tournament.startTime;
-        if (startTime) {
-          setTimeLeft(new Date(startTime).getTime() - Date.now());
-        }
+    const socketUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000';
+    const socket = io(socketUrl);
+
+    socket.on('roomDataReleased', (data: any) => {
+      if (data.tournamentId === id) {
+        fetchTournament();
       }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [tournament]);
+    });
 
-  const handleJoinWithWallet = async () => {
-    if (!user) { 
-      router.push("/login"); 
-      return; 
+    return () => {
+      socket.disconnect();
+    };
+  }, [id]);
+
+  const handleJoin = async () => {
+    if (!user) {
+      router.push('/login');
+      return;
     }
-    
-    if (!window.confirm(`Spend ₹${tournament.entryFee} from your Digital Wallet to register?`)) return;
+    if (!window.confirm(`Join tournament? This will deduct ₹${tournament?.entryFee} from your wallet.`)) return;
 
-    setSubmitting(true);
+    setJoinLoading(true);
+    setError('');
     try {
-      await api.post(`/tournaments/${id}/join`);
-      toast.success("Successfully registered! Ticket fee deducted from wallet balance.");
-      setIsJoined(true);
-      fetchTournamentData(); 
+      const currentToken = localStorage.getItem('token') || '';
+      await api.post(`/tournaments/${id}/join`, {}, { headers: { Authorization: `Bearer ${currentToken}` } });
+      
+      await fetchTournament(); 
     } catch (err: any) {
-      const errMsg = err.response?.data?.error || err.response?.data?.message || "Join failed.";
-      if (errMsg.toLowerCase().includes("funds") || errMsg.toLowerCase().includes("balance")) {
-        toast.error("Insufficient balance! Please navigate to your Dashboard to replenish your wallet funds.");
-      } else {
-        toast.error(errMsg);
-      }
+      setError(err.response?.data?.error || 'Failed to join tournament.');
     } finally {
-      setSubmitting(false);
+      setJoinLoading(false);
     }
   };
 
-  if (loading) return (
-    <div style={{ textAlign: "center", padding: "80px 20px", color: "#00F0FF", background: "#090B10", minHeight: "100-screen" }}>Loading Arena Details...</div>
-  );
-  if (!tournament) return (
-    <div style={{ textAlign: "center", padding: "80px 20px", color: "#ef4444", background: "#090B10", minHeight: "100-screen" }}>Tournament not found or was removed.</div>
-  );
+  if (loading) return <div className="min-h-screen bg-[#090B10] flex items-center justify-center"><Loader2 className="animate-spin text-[#b026ff]" size={40} /></div>;
+  if (!tournament) return <div className="min-h-screen bg-[#090B10] text-white flex items-center justify-center">Tournament not found.</div>;
 
-  const color = TYPE_COLORS[tournament.gameName || tournament.type] || "#00e5ff";
-  const slotsFilled = tournament.currentParticipants || tournament.participants?.length || 0;
-  const maxSlots = tournament.maxParticipants || tournament.slots || 48;
+  const isParticipant = user && tournament.participants?.some((p: any) => p.id === user.id);
+  const isFull = tournament.currentParticipants >= tournament.maxParticipants;
+  const isRegistrationOpen = tournament.status === 'REGISTRATION_OPEN';
 
   return (
-    <div style={{ maxWidth: 800, margin: "0 auto", padding: "20px 16px", minHeight: "100vh", color: "white" }}>
-      <Link href="/dashboard" style={{ color: "#6b7280", fontSize: 13, textDecoration: "none", display: "inline-block", marginBottom: 16 }}>
-        ← Back to Arena Dashboard
-      </Link>
+    <div className="min-h-screen bg-[#090B10] text-white p-4 md:p-8">
+      <div className="max-w-4xl mx-auto space-y-6">
+        
+        <Link href="/dashboard">
+          <button className="flex items-center gap-2 bg-[#11141D] border border-gray-800 px-4 py-2 rounded-lg text-gray-400 hover:text-white transition">
+            <ArrowLeft size={16} /> Back to Arena
+          </button>
+        </Link>
 
-      <div style={{ padding: 0, overflow: "hidden", border: `1px solid ${color}33`, borderRadius: 16, backgroundColor: '#11141D' }}>
-        {/* Banner Area */}
-        <div style={{ background: `linear-gradient(135deg, ${color}11, #0A0C10)`, padding: "28px 24px", borderBottom: "1px solid #ffffff0a" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 14 }}>
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-4 rounded-xl flex items-center gap-3">
+            <ShieldAlert size={20} /> {error}
+          </div>
+        )}
+
+        {/* HERO SECTION */}
+        <div className="bg-[#11141D] border border-gray-800 rounded-3xl p-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-[#b026ff] rounded-full blur-[120px] opacity-10 pointer-events-none"></div>
+          
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
             <div>
-              <span style={{ background: color + "22", color, border: `1px solid ${color}44`, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 700, display: "inline-block" }}>
-                {tournament.gameName || tournament.type || 'Battle Royale'}
-              </span>
-              <h1 style={{ margin: "12px 0 6px", fontSize: "clamp(20px, 4vw, 28px)", fontWeight: 900 }}>{tournament.title || tournament.name}</h1>
-              <div style={{ color: "#6b7280", fontSize: 13 }}>🗺️ {tournament.map || 'Bermuda'} · 🎮 Free Fire Mobile</div>
-            </div>
-            <div style={{ background: timeLeft <= 0 ? "#ef444422" : "#0d0d18", border: `1px solid ${timeLeft <= 0 ? "#ef4444" : "#333"}`, borderRadius: 12, padding: "14px 20px", textAlign: "center", minWidth: 110 }}>
-              <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 4 }}>MATCH STARTS</div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: timeLeft <= 0 ? "#ef4444" : timeLeft < 900000 ? "#f59e0b" : "#00e5ff" }}>
-                {formatCountdown(timeLeft)}
+              <div className="flex items-center gap-3 mb-2">
+                <span className="bg-[#b026ff]/20 text-[#b026ff] border border-[#b026ff]/30 px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase">
+                  {tournament.gameName}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase border ${isRegistrationOpen ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30'}`}>
+                  {tournament.status.replace('_', ' ')}
+                </span>
               </div>
+              <h1 className="text-3xl md:text-5xl font-extrabold uppercase tracking-tight mb-2">{tournament.title}</h1>
+              <p className="text-gray-400 flex items-center gap-2">
+                Scheduled: <span className="text-white font-medium">{new Date(tournament.scheduledAt).toLocaleString()}</span>
+              </p>
+            </div>
+            
+            <div className="bg-[#0A0C10] border border-gray-800 rounded-2xl p-6 text-center min-w-[200px]">
+              <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-1">Entry Fee</p>
+              <p className="text-3xl font-extrabold text-[#00F0FF]">₹{tournament.entryFee}</p>
             </div>
           </div>
         </div>
 
-        <div style={{ padding: 24 }}>
-          {/* Information Metrics */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12, marginBottom: 22 }}>
-            {[
-              { l: "Entry Fee", v: `₹${tournament.entryFee}`, c: "#fbbf24" },
-              { l: "Prize Pool", v: `₹${tournament.prizePool}`, c: "#10b981" },
-              { l: "Registered Slots", v: `${slotsFilled}/${maxSlots}`, c: color },
-              { l: "Match Status", v: (tournament.status || 'OPEN').replace('_', ' '), c: tournament.status === "COMPLETED" ? "#6b7280" : "#10b981" },
-            ].map((s) => (
-              <div key={s.l} style={{ background: "#0A0C10", borderRadius: 10, padding: "12px 14px", border: '1px solid #1f2937' }}>
-                <div style={{ color: "#6b7280", fontSize: 10, marginBottom: 4, textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.05em' }}>{s.l}</div>
-                <div style={{ color: s.c, fontWeight: 800, fontSize: 18 }}>{s.v}</div>
-              </div>
-            ))}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* STATS CARDS */}
+          <div className="md:col-span-2 grid grid-cols-2 gap-4">
+            <div className="bg-[#11141D] border border-gray-800 rounded-2xl p-6 flex flex-col justify-center items-center text-center">
+              <Trophy className="text-yellow-500 mb-2" size={28} />
+              <p className="text-gray-500 text-xs font-bold uppercase">Prize Pool</p>
+              <p className="text-xl font-bold text-white">₹{tournament.prizePool}</p>
+            </div>
+            <div className="bg-[#11141D] border border-gray-800 rounded-2xl p-6 flex flex-col justify-center items-center text-center">
+              <Users className="text-[#00F0FF] mb-2" size={28} />
+              <p className="text-gray-500 text-xs font-bold uppercase">Registered</p>
+              <p className="text-xl font-bold text-white">{tournament.currentParticipants} / {tournament.maxParticipants}</p>
+            </div>
+            <div className="bg-[#11141D] border border-gray-800 rounded-2xl p-6 flex flex-col justify-center items-center text-center">
+              <Map className="text-emerald-400 mb-2" size={28} />
+              <p className="text-gray-500 text-xs font-bold uppercase">Map</p>
+              <p className="text-xl font-bold text-white">{tournament.map}</p>
+            </div>
+            <div className="bg-[#11141D] border border-gray-800 rounded-2xl p-6 flex flex-col justify-center items-center text-center">
+              <Crosshair className="text-red-400 mb-2" size={28} />
+              <p className="text-gray-500 text-xs font-bold uppercase">Mode</p>
+              <p className="text-xl font-bold text-white">{tournament.teamMode}</p>
+            </div>
           </div>
 
-          {/* Secure Custom Room Coordinates Block */}
-          {isJoined && (
-            <div style={{ background: tournament.roomId ? "#052e1c" : "#0A0C10", border: `1px solid ${tournament.roomId ? "#10b981" : "#1f2937"}`, borderRadius: 12, padding: 18, marginBottom: 22 }}>
-              <div style={{ color: tournament.roomId ? "#10b981" : "#6b7280", fontWeight: 700, marginBottom: tournament.roomId ? 12 : 0, fontSize: 14 }}>
-                {tournament.roomId ? "🔑 Custom Room Coordinates Issued:" : "⏳ Custom Room configuration parameters will appear here immediately before layout configuration goes live."}
-              </div>
-              {tournament.roomId && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div style={{ background: "#0d1f0d", borderRadius: 8, padding: 12, border: '1px solid #10b98133' }}>
-                    <div style={{ color: "#6b7280", fontSize: 10, marginBottom: 4, fontWeight: 'bold' }}>ROOM ID</div>
-                    <div style={{ color: "#10b981", fontWeight: 900, fontSize: 22, letterSpacing: 2 }}>{tournament.roomId}</div>
-                  </div>
-                  <div style={{ background: "#0d1f0d", borderRadius: 8, padding: 12, border: '1px solid #10b98133' }}>
-                    <div style={{ color: "#6b7280", fontSize: 10, marginBottom: 4, fontWeight: 'bold' }}>PASSWORD</div>
-                    <div style={{ color: "#10b981", fontWeight: 900, fontSize: 22, letterSpacing: 2 }}>{tournament.roomPassword}</div>
-                  </div>
+          {/* ACTION PANEL */}
+          <div className="bg-[#11141D] border border-gray-800 rounded-2xl p-6 flex flex-col justify-between">
+            <div>
+              <h3 className="font-bold text-white text-lg mb-4">Registration Status</h3>
+              {isParticipant ? (
+                <div className="bg-green-500/10 border border-green-500/30 text-green-400 p-4 rounded-xl text-center mb-6">
+                  <CheckSquare className="mx-auto mb-2" size={24} />
+                  <p className="font-bold">You are registered!</p>
+                  <p className="text-xs mt-1 text-green-500/80">Entry fee paid.</p>
+                </div>
+              ) : (
+                <div className="space-y-4 mb-6">
+                  <p className="text-sm text-gray-400">Secure your slot before the lobby fills up. Entry fee will be deducted from your wallet.</p>
                 </div>
               )}
             </div>
-          )}
 
-          {/* Execution Controls */}
-          {!user ? (
-            <Link href="/login" style={{ display: "block", textAlign: "center", textDecoration: "none", padding: "14px", fontSize: 15, borderRadius: 10, backgroundColor: '#b026ff', color: 'white', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(176,38,255,0.3)' }}>
-              Login to Join Match →
-            </Link>
-          ) : isJoined ? (
-            <div style={{ background: "#052e1c", border: "1px solid #10b98133", borderRadius: 10, padding: 16, textAlign: "center" }}>
-              <div style={{ color: "#10b981", fontWeight: 700, fontSize: 15 }}>✅ Registration Status Validated. Prepare for Drop-In! 🏆</div>
-            </div>
-          ) : (
-            <button
-              onClick={handleJoinWithWallet}
-              disabled={slotsFilled >= maxSlots || submitting || tournament.status !== 'REGISTRATION_OPEN'}
-              style={{ 
-                width: "100%", padding: "14px", fontSize: 15, 
-                backgroundColor: slotsFilled >= maxSlots ? '#1f2937' : '#b026ff', 
-                color: slotsFilled >= maxSlots ? '#4b5563' : 'white', fontWeight: 'bold', borderRadius: 10, border: 'none', 
-                cursor: (slotsFilled >= maxSlots || submitting || tournament.status !== 'REGISTRATION_OPEN') ? 'not-allowed' : 'pointer',
-                opacity: (slotsFilled >= maxSlots || submitting || tournament.status !== 'REGISTRATION_OPEN') ? 0.6 : 1,
-                boxShadow: slotsFilled >= maxSlots ? 'none' : '0 4px 14px rgba(176,38,255,0.3)'
-              }}
-            >
-              {submitting ? "Processing Transaction..." : 
-               slotsFilled >= maxSlots ? "🚫 Tournament Slots Filled" : 
-               tournament.status !== 'REGISTRATION_OPEN' ? "🔒 Registrations Locked" :
-               `🎮 Deduct Fee & Secure Slot (₹${tournament.entryFee})`}
-            </button>
-          )}
+            {!isParticipant && (
+              <button 
+                onClick={handleJoin}
+                disabled={!isRegistrationOpen || isFull || joinLoading}
+                className={`w-full py-4 rounded-xl font-extrabold uppercase tracking-widest transition-all flex justify-center items-center gap-2 ${
+                  !isRegistrationOpen || isFull 
+                    ? 'bg-gray-800 text-gray-600 cursor-not-allowed' 
+                    : 'bg-[#b026ff] hover:bg-[#901ecc] text-white shadow-[0_0_20px_rgba(176,38,255,0.4)] active:scale-95'
+                }`}
+              >
+                {joinLoading ? <Loader2 className="animate-spin" size={20} /> : (isFull ? 'Lobby Full' : 'Join Match')}
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* 🔒 THE SECURE PAYWALL BOX */}
+        {isParticipant && (
+          <div className="mt-8 animate-in slide-in-from-bottom-4 duration-500">
+            {tournament.roomId && tournament.roomPassword ? (
+              <div className="bg-gradient-to-r from-[#b026ff]/20 to-[#00F0FF]/10 border border-[#b026ff]/50 rounded-2xl p-8 shadow-[0_0_50px_rgba(176,38,255,0.15)]">
+                <div className="flex items-center gap-3 mb-6">
+                  <Key className="text-[#b026ff]" size={28} />
+                  <h2 className="text-2xl font-bold text-white uppercase tracking-wider">Lobby Coordinates Revealed</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-[#0A0C10] border border-[#b026ff]/30 p-4 rounded-xl">
+                    <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Room ID</p>
+                    <p className="text-2xl font-mono font-bold text-white tracking-widest select-all">{tournament.roomId}</p>
+                  </div>
+                  <div className="bg-[#0A0C10] border border-[#b026ff]/30 p-4 rounded-xl">
+                    <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Room Password</p>
+                    <p className="text-2xl font-mono font-bold text-[#00F0FF] tracking-widest select-all">{tournament.roomPassword}</p>
+                  </div>
+                </div>
+                <p className="text-red-400 text-xs mt-4 text-center font-bold tracking-widest uppercase">⚠️ Do not share these credentials. Unauthorized IPs will be instantly banned.</p>
+              </div>
+            ) : (
+              <div className="bg-[#0A0C10] border border-gray-800 border-l-4 border-l-yellow-500 rounded-2xl p-8 flex flex-col items-center justify-center text-center">
+                <Loader2 className="text-yellow-500 animate-spin mb-4" size={32} />
+                <h2 className="text-xl font-bold text-white mb-2">Awaiting Lobby Coordinates</h2>
+                <p className="text-gray-400 text-sm max-w-md">You are registered! The Overseer will broadcast the Room ID and Password here 10-15 minutes before the match starts.</p>
+                
+                {/* 🚀 FIXED: Manual Refresh Button added as a fail-safe */}
+                <button 
+                  onClick={() => fetchTournament(true)}
+                  disabled={joinLoading}
+                  className="mt-6 flex items-center justify-center gap-2 text-yellow-500 hover:text-yellow-400 bg-yellow-500/10 px-4 py-2 rounded border border-yellow-500/20 text-xs font-bold uppercase transition"
+                >
+                  <RefreshCw size={14} className={joinLoading ? 'animate-spin' : ''} /> Force Refresh Coordinates
+                </button>
+
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
