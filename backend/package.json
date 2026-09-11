@@ -1,7 +1,7 @@
 {
-  "name": "ff-arena-backend",
+  "name": "vps-esportshub-backend",
   "version": "1.0.0",
-  "description": "FF Arena Tournament Platform Backend",
+  "description": "VPS EsportsHub Tournament Platform Backend",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -24,7 +24,7 @@
     "multer": "^1.4.5-lts.1",
     "pg": "^8.21.0",
     "prisma": "^6.19.3",
-    "razorpay": "^2.9.6",
+    "razorpay": "^2.9.8",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {

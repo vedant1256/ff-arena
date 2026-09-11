@@ -90,4 +90,60 @@ const toggleBanUser = async (req, res) => {
     }
 };
 
-module.exports = { updateTournament, getTournamentPlayers, getAllUsers, toggleBanUser };
+// @desc    Get all pending withdrawal requests
+// @route   GET /api/admin/withdrawals
+const getPendingWithdrawals = async (req, res) => {
+    try {
+        const withdrawals = await prisma.transaction.findMany({
+            where: { type: 'DEBIT', status: 'PENDING', description: 'Withdrawal to UPI' },
+            include: { user: { select: { username: true, email: true, freeFireUid: true } } },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.status(200).json(withdrawals);
+    } catch (error) {
+        console.error("Error fetching withdrawals:", error);
+        res.status(500).json({ error: 'Failed to fetch pending withdrawals.' });
+    }
+};
+
+// @desc    Process (Approve/Reject) a withdrawal request
+// @route   PUT /api/admin/withdrawals/:id/process
+const processWithdrawal = async (req, res) => {
+    try {
+        const transactionId = req.params.id;
+        const { action } = req.body; // 'APPROVE' or 'REJECT'
+
+        const transaction = await prisma.transaction.findUnique({ where: { id: transactionId } });
+        if (!transaction || transaction.type !== 'DEBIT' || transaction.status !== 'PENDING') {
+            return res.status(404).json({ error: 'Valid pending withdrawal request not found.' });
+        }
+
+        if (action === 'APPROVE') {
+            await prisma.transaction.update({
+                where: { id: transactionId },
+                data: { status: 'SUCCESS' }
+            });
+            return res.status(200).json({ message: 'Withdrawal approved successfully!' });
+        } else if (action === 'REJECT') {
+            // Refund to winning balance
+            await prisma.$transaction([
+                prisma.transaction.update({
+                    where: { id: transactionId },
+                    data: { status: 'FAILED' }
+                }),
+                prisma.user.update({
+                    where: { id: transaction.userId },
+                    data: { winningBalance: { increment: transaction.amount } }
+                })
+            ]);
+            return res.status(200).json({ message: 'Withdrawal rejected and amount refunded.' });
+        } else {
+            return res.status(400).json({ error: 'Invalid action. Must be APPROVE or REJECT.' });
+        }
+    } catch (error) {
+        console.error("Error processing withdrawal:", error);
+        res.status(500).json({ error: 'Failed to process withdrawal.' });
+    }
+};
+
+module.exports = { updateTournament, getTournamentPlayers, getAllUsers, toggleBanUser, getPendingWithdrawals, processWithdrawal };

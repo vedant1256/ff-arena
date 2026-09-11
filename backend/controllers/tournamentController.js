@@ -16,7 +16,6 @@ const getTournaments = async (req, res) => {
     let userRole = req.user?.role || null;
     let userEmail = req.user?.email || null;
 
-    // Manually decode token if req.user is missing (because it's a public route)
     if (!userId && req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       try {
         const token = req.headers.authorization.split(' ')[1];
@@ -32,7 +31,6 @@ const getTournaments = async (req, res) => {
       }
     }
 
-    // 🚀 FIXED: Backend now perfectly recognizes your email as an Admin!
     const isAdmin = userRole === 'ADMIN' || (userEmail && ADMIN_EMAILS.includes(userEmail.toLowerCase()));
 
     const tournaments = await prisma.tournament.findMany({
@@ -40,18 +38,15 @@ const getTournaments = async (req, res) => {
       include: { participants: { select: { id: true, username: true, freeFireUid: true } } }
     });
     
-    // 🛡️ SECURE PAYWALL: Check participation for EACH tournament
     const safeTournaments = tournaments.map(t => {
       const isParticipant = userId && t.participants.some(p => p.id === userId);
 
       if (isAdmin) {
-        return t; // Admin sees everything (Room details + Participant List)
+        return t; 
       } else if (isParticipant) {
-        // Paid player sees Room Details, but hide other players' private data
         const { participants, ...participantData } = t;
         return participantData; 
       } else {
-        // Public/Unpaid player sees NO Room Details and NO participants list
         const { roomId, roomPassword, participants, ...publicData } = t;
         return publicData;
       }
@@ -122,7 +117,7 @@ const createTournament = async (req, res) => {
   }
 };
 
-// 4. Join a Tournament
+// 4. 💰 Join a Tournament 
 const joinTournament = async (req, res) => {
   try {
     const tournamentId = req.params.id;
@@ -132,6 +127,7 @@ const joinTournament = async (req, res) => {
         where: { id: userId },
         include: { tournaments: true } 
     });
+    
     const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
 
     if (!tournament) return res.status(404).json({ error: 'Tournament not found.' });
@@ -142,15 +138,32 @@ const joinTournament = async (req, res) => {
     const alreadyJoined = user.tournaments?.some(t => t.id === tournamentId);
     if (alreadyJoined) return res.status(400).json({ error: 'You are already registered for this match.' });
 
-    if (user.walletBalance < tournament.entryFee) {
-      return res.status(400).json({ error: 'Insufficient funds. Please recharge your wallet.' });
+    const maxBonusAllowed = tournament.entryFee * 0.5;
+    const bonusToDeduct = Math.min(user.bonusBalance, maxBonusAllowed);
+    
+    let remainingFee = tournament.entryFee - bonusToDeduct;
+
+    const depositToDeduct = Math.min(user.depositBalance, remainingFee);
+    remainingFee -= depositToDeduct;
+
+    const winningToDeduct = Math.min(user.winningBalance, remainingFee);
+    remainingFee -= winningToDeduct;
+
+    if (remainingFee > 0) {
+      return res.status(400).json({ error: 'Insufficient funds across your wallets. Please recharge your deposit wallet.' });
     }
 
-    await prisma.$transaction([
+    const isPaidMatch = tournament.entryFee > 0;
+    const newMatchCount = user.paidMatchesCount + (isPaidMatch ? 1 : 0);
+
+    const dbOperations = [
       prisma.user.update({
         where: { id: userId },
         data: {
-          walletBalance: { decrement: tournament.entryFee },
+          bonusBalance: { decrement: bonusToDeduct },
+          depositBalance: { decrement: depositToDeduct },
+          winningBalance: { decrement: winningToDeduct },
+          paidMatchesCount: isPaidMatch ? { increment: 1 } : undefined,
           tournaments: { connect: { id: tournamentId } } 
         }
       }),
@@ -166,8 +179,39 @@ const joinTournament = async (req, res) => {
         where: { id: tournamentId },
         data: { currentParticipants: { increment: 1 } }
       })
-    ]);
+    ];
 
+    if (isPaidMatch && user.referredBy) {
+      let bonusReward = 0;
+      let rewardDescription = '';
+
+      if (newMatchCount === 1) {
+        bonusReward = 5;
+        rewardDescription = `Referral Bonus: Friend's 1st Match`;
+      } else if (newMatchCount === 5) {
+        bonusReward = 10;
+        rewardDescription = `Referral Milestone: Friend's 5th Match`;
+      }
+
+      if (bonusReward > 0) {
+        dbOperations.push(
+          prisma.user.update({
+            where: { id: user.referredBy },
+            data: { bonusBalance: { increment: bonusReward } }
+          }),
+          prisma.transaction.create({
+            data: { 
+              userId: user.referredBy, 
+              amount: bonusReward, 
+              type: 'CREDIT', 
+              description: rewardDescription 
+            }
+          })
+        );
+      }
+    }
+
+    await prisma.$transaction(dbOperations);
     res.status(200).json({ message: 'Successfully joined the match!' });
   } catch (error) {
     console.error("Join Tournament Error:", error);
@@ -197,7 +241,7 @@ const updateTournament = async (req, res) => {
   }
 };
 
-// 6. Declare Match Winner
+// 6. Manual Winner Declaration (Kept as fallback for admins)
 const declareWinner = async (req, res) => {
   try {
     const tournamentId = req.params.id;
@@ -219,7 +263,7 @@ const declareWinner = async (req, res) => {
       }),
       prisma.user.update({
         where: { id: winner.id },
-        data: { walletBalance: { increment: tournament.prizePool } }
+        data: { winningBalance: { increment: tournament.prizePool } }
       }),
       prisma.transaction.create({
         data: {
@@ -231,7 +275,7 @@ const declareWinner = async (req, res) => {
       })
     ]);
 
-    res.status(200).json({ message: `Payout successful! ₹${tournament.prizePool} credited to ${winner.username}.` });
+    res.status(200).json({ message: `Payout successful! ₹${tournament.prizePool} credited to ${winner.username}'s Winning Wallet.` });
   } catch (error) {
     console.error("Winner Declaration Error:", error);
     res.status(500).json({ error: "Server error executing match completion payout loop." });
@@ -253,4 +297,151 @@ const deleteTournament = async (req, res) => {
   }
 };
 
-module.exports = { getTournaments, getTournamentById, createTournament, joinTournament, updateTournament, declareWinner, deleteTournament };
+// ==========================================
+// 📸 NEW: SCREENSHOT VERIFICATION SYSTEM 
+// ==========================================
+
+// 8. Player submits their screenshot URL
+const submitMatchResult = async (req, res) => {
+  try {
+    const tournamentId = req.params.id;
+    const userId = req.user.id;
+    const { imageUrl } = req.body;
+
+    if (!imageUrl) return res.status(400).json({ error: "Screenshot Image URL is required." });
+
+    const tournament = await prisma.tournament.findUnique({ 
+      where: { id: tournamentId }, 
+      include: { participants: true } 
+    });
+
+    if (!tournament) return res.status(404).json({ error: "Tournament not found." });
+    
+    // Safety checks
+    const isParticipant = tournament.participants.some(p => p.id === userId);
+    if (!isParticipant) return res.status(403).json({ error: "You didn't participate in this match." });
+    if (tournament.status === 'COMPLETED') return res.status(400).json({ error: "This match has already been settled." });
+
+    // Check if player already submitted to prevent spam
+    const existing = await prisma.matchResult.findUnique({
+      where: { userId_tournamentId: { userId, tournamentId } }
+    });
+
+    if (existing) return res.status(400).json({ error: "You have already submitted a screenshot for this match." });
+
+    await prisma.matchResult.create({
+      data: { imageUrl, tournamentId, userId }
+    });
+
+    res.status(201).json({ message: "Screenshot submitted successfully! Admin will verify soon." });
+  } catch (error) {
+    console.error("Submit Result Error:", error);
+    res.status(500).json({ error: "Failed to submit match result." });
+  }
+};
+
+// 9. Admin fetches all pending verifications
+const getPendingResults = async (req, res) => {
+  try {
+    const results = await prisma.matchResult.findMany({
+      where: { status: 'PENDING' },
+      include: {
+        user: { select: { id: true, username: true, freeFireUid: true } },
+        tournament: { select: { id: true, title: true, prizePool: true, status: true } }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    res.status(200).json(results);
+  } catch (error) {
+    console.error("Fetch Pending Results Error:", error);
+    res.status(500).json({ error: "Failed to fetch pending results." });
+  }
+};
+
+// 10. Admin Approves or Rejects the screenshot (AUTO-PAYOUT)
+const verifyMatchResult = async (req, res) => {
+  try {
+    const { resultId } = req.params;
+    const { action } = req.body; // Expects 'APPROVE' or 'REJECT'
+
+    const matchResult = await prisma.matchResult.findUnique({
+      where: { id: resultId },
+      include: { tournament: true, user: true }
+    });
+
+    if (!matchResult) return res.status(404).json({ error: "Result not found." });
+    if (matchResult.status !== 'PENDING') return res.status(400).json({ error: "This result has already been processed." });
+
+    // ❌ IF ADMIN REJECTS (Fake screenshot)
+    if (action === 'REJECT') {
+      await prisma.matchResult.update({
+        where: { id: resultId },
+        data: { status: 'REJECTED' }
+      });
+      return res.status(200).json({ message: "Screenshot rejected. Player will not receive the payout." });
+    }
+
+    // ✅ IF ADMIN APPROVES (Real Winner -> Auto Payout Engine)
+    if (action === 'APPROVE') {
+      if (matchResult.tournament.status === 'COMPLETED') {
+        return res.status(400).json({ error: "A winner was already approved for this match." });
+      }
+
+      // 🚀 ATOMIC TRANSACTION: Does everything instantly safely
+      await prisma.$transaction([
+        // 1. Mark this specific screenshot as APPROVED
+        prisma.matchResult.update({
+          where: { id: resultId },
+          data: { status: 'APPROVED' }
+        }),
+        // 2. Automatically mark all OTHER pending screenshots for this tournament as REJECTED
+        prisma.matchResult.updateMany({
+          where: { tournamentId: matchResult.tournamentId, id: { not: resultId }, status: 'PENDING' },
+          data: { status: 'REJECTED' }
+        }),
+        // 3. Close the tournament
+        prisma.tournament.update({
+          where: { id: matchResult.tournamentId },
+          data: { status: 'COMPLETED' }
+        }),
+        // 4. Inject money into the Winner's Wallet
+        prisma.user.update({
+          where: { id: matchResult.userId },
+          data: { winningBalance: { increment: matchResult.tournament.prizePool } }
+        }),
+        // 5. Record the transaction
+        prisma.transaction.create({
+          data: {
+            userId: matchResult.userId,
+            amount: matchResult.tournament.prizePool,
+            type: 'CREDIT',
+            description: `CHAMPION PRIZE: ${matchResult.tournament.title}`
+          }
+        })
+      ]);
+
+      return res.status(200).json({ 
+        message: `Payout Auto-Triggered! ₹${matchResult.tournament.prizePool} credited to ${matchResult.user.username}. Match closed.` 
+      });
+    }
+
+    res.status(400).json({ error: "Invalid action. Use APPROVE or REJECT." });
+  } catch (error) {
+    console.error("Verify Result Error:", error);
+    res.status(500).json({ error: "Server error during verification process." });
+  }
+};
+
+module.exports = { 
+  getTournaments, 
+  getTournamentById, 
+  createTournament, 
+  joinTournament, 
+  updateTournament, 
+  declareWinner, 
+  deleteTournament,
+  submitMatchResult,   // 🚀 NEW
+  getPendingResults,   // 🚀 NEW
+  verifyMatchResult    // 🚀 NEW
+};

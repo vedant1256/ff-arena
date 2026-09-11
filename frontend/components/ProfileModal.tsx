@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, User as UserIcon, Crosshair, Save } from 'lucide-react';
+import { X, User as UserIcon, Crosshair, Save, Copy, CheckCircle2, Gift } from 'lucide-react';
 import api from '../lib/axios';
 
 interface ProfileModalProps {
@@ -15,6 +15,7 @@ export default function ProfileModal({ isOpen, onClose, user }: ProfileModalProp
   const [uid, setUid] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [copied, setCopied] = useState(false);
 
   // Pre-fill the UID if the user already has one saved
   useEffect(() => {
@@ -49,10 +50,19 @@ export default function ProfileModal({ isOpen, onClose, user }: ProfileModalProp
     }
   };
 
+  const copyToClipboard = () => {
+    if (user?.referralCode) {
+      navigator.clipboard.writeText(user.referralCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-[#11141D] border border-[#b026ff]/30 rounded-2xl w-full max-w-sm overflow-hidden shadow-[0_0_50px_rgba(176,38,255,0.1)]">
         
+        {/* Header */}
         <div className="bg-[#0A0C10] p-5 border-b border-gray-800 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <UserIcon className="text-[#b026ff]" size={20} />
@@ -77,7 +87,7 @@ export default function ProfileModal({ isOpen, onClose, user }: ProfileModalProp
                 type="text" 
                 value={user?.username || ''} 
                 disabled 
-                className="w-full bg-[#0A0C10] border border-gray-800 rounded-xl px-4 py-3 text-gray-500 cursor-not-allowed" 
+                className="w-full bg-[#0A0C10] border border-gray-800 rounded-xl px-4 py-3 text-gray-500 cursor-not-allowed font-medium" 
               />
             </div>
 
@@ -91,19 +101,45 @@ export default function ProfileModal({ isOpen, onClose, user }: ProfileModalProp
                 value={uid} 
                 onChange={(e) => setUid(e.target.value)} 
                 placeholder="e.g., 1234567890"
-                className="w-full bg-[#0A0C10] border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#b026ff] transition-colors" 
+                className="w-full bg-[#0A0C10] border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#b026ff] transition-colors font-medium tracking-widest" 
               />
-              <p className="text-xs text-gray-500 mt-2">This exact UID must join the custom room, or you will be kicked without a refund.</p>
+              <p className="text-[10px] text-gray-500 mt-2 uppercase tracking-wide">This exact UID must join the custom room.</p>
             </div>
 
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full bg-gradient-to-r from-[#b026ff]/20 to-[#b026ff]/10 hover:from-[#b026ff]/30 border border-[#b026ff]/50 text-[#b026ff] font-bold py-3 px-4 rounded-xl transition-all mt-4 flex items-center justify-center gap-2 uppercase tracking-wider active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-gradient-to-r from-[#b026ff]/20 to-[#b026ff]/10 hover:from-[#b026ff]/30 border border-[#b026ff]/50 text-[#b026ff] font-bold py-3 px-4 rounded-xl transition-all mt-2 flex items-center justify-center gap-2 uppercase tracking-wider active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save size={18} /> {loading ? 'Saving...' : 'Save Profile'}
             </button>
           </form>
+
+          {/* 🚀 NEW: REFER & EARN SECTION */}
+          <div className="mt-6 pt-6 border-t border-gray-800">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+              <Gift size={16} className="text-green-400"/> Refer & Earn
+            </h3>
+            
+            <p className="text-[11px] text-gray-500 mb-4 leading-relaxed">
+              Invite friends to play! Get <strong className="text-green-400 font-bold">₹5 Bonus</strong> when they play their 1st paid match, and <strong className="text-green-400 font-bold">₹10 Bonus</strong> on their 5th match.
+            </p>
+
+            <div className="flex items-center gap-2">
+              <div className="flex-1 bg-[#0A0C10] border border-gray-700 rounded-xl px-4 py-3 text-white font-mono text-sm tracking-widest text-center truncate">
+                {user?.referralCode || 'Generating...'}
+              </div>
+              <button 
+                type="button"
+                onClick={copyToClipboard}
+                className="p-3 bg-[#11141D] hover:bg-gray-800 text-gray-300 hover:text-white rounded-xl transition-all border border-gray-700 hover:border-gray-500 active:scale-95 flex-shrink-0"
+                title="Copy Referral Code"
+              >
+                {copied ? <CheckCircle2 size={18} className="text-green-400" /> : <Copy size={18} />}
+              </button>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>

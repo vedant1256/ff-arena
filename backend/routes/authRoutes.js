@@ -2,17 +2,21 @@
 const express = require('express');
 const router = express.Router();
 
-const { registerUser, loginUser, googleLogin, getMe } = require('../controllers/authController');
-const { protect } = require('../middleware/auth');
+// 🚀 NEW: Added getLeaderboard to the imports
+const { registerUser, loginUser, googleLogin, getMe, acceptTerms, getLeaderboard } = require('../controllers/authController');
 
-// Public routes for standard login/signup
+// 🚀 FIXED: Importing from '../middleware/auth' instead of 'authMiddleware'
+const { protect } = require('../middleware/auth'); 
+
 router.post('/register', registerUser);
 router.post('/login', loginUser);
-
-// PUBLIC ROUTE: Google Authentication (This fixes your 404 error!)
 router.post('/google', googleLogin);
-
-// Protected route to get current user data
 router.get('/me', protect, getMe);
+
+// NAYA ROUTE: Terms accept karne ke liye
+router.put('/accept-terms', protect, acceptTerms);
+
+// 🏆 NEW: Leaderboard Route (Public so anyone can see top players)
+router.get('/leaderboard', getLeaderboard);
 
 module.exports = router;

@@ -37,6 +37,13 @@ enum TransactionStatus {
   FAILED
 }
 
+// 🚀 NEW: Status for Screenshot Verification
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 // --- MODELS ---
 model User {
   id               String   @id @default(uuid())
@@ -46,14 +53,26 @@ model User {
   freeFireUid      String?  @unique
   role             Role     @default(PLAYER)
   isBanned         Boolean  @default(false)
-  walletBalance    Float    @default(0.00)
   
-  // NEW: Legal Compliance Fields
+  // 💰 THE TRIPLE WALLET SYSTEM
+  depositBalance   Float    @default(0.00)
+  winningBalance   Float    @default(0.00)
+  bonusBalance     Float    @default(0.00)
+  
   hasAcceptedTerms Boolean  @default(false)
   termsAcceptedAt  DateTime?
+  state            String?  // 🚀 NEW: Razorpay Geofencing requirement
+
+  // 🚀 REFERRAL ENGINE
+  referralCode     String?  @unique @default(uuid())
+  referredBy       String?  
+  paidMatchesCount Int      @default(0) 
   
   tournaments      Tournament[]
   transactions     Transaction[]
+  
+  // 🚀 NEW: Relation to their uploaded match results
+  matchResults     MatchResult[]
   
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -65,6 +84,7 @@ model Transaction {
   type              TransactionType
   status            TransactionStatus @default(PENDING)
   description       String?           
+  upiId             String?           // 🚀 NEW: For withdrawal requests
   
   razorpayOrderId   String?           @unique
   razorpayPaymentId String?           @unique
@@ -77,19 +97,19 @@ model Transaction {
 }
 
 model Tournament {
-  id                  String   @id @default(uuid())
+  id                  String           @id @default(uuid())
   title               String
   description         String?
-  gameName            String   @default("Free Fire")
+  gameName            String           @default("Free Fire")
   
-  map                 String   @default("Bermuda")
-  teamMode            String   @default("Solo")
-  minLevel            Int      @default(40)
+  map                 String           @default("Bermuda")
+  teamMode            String           @default("Solo")
+  minLevel            Int              @default(40)
   
-  entryFee            Float    @default(0.00)
-  prizePool           Float    @default(0.00)
-  maxParticipants     Int      @default(48)
-  currentParticipants Int      @default(0)
+  entryFee            Float            @default(0.00)
+  prizePool           Float            @default(0.00)
+  maxParticipants     Int              @default(48)
+  currentParticipants Int              @default(0)
   status              TournamentStatus @default(UPCOMING)
   scheduledAt         DateTime
   
@@ -98,6 +118,28 @@ model Tournament {
 
   participants        User[]
 
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  // 🚀 NEW: Relation to results submitted for this tournament
+  matchResults        MatchResult[]
+
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+}
+
+// 🚀 NEW MODEL: Match Result Screenshot Verification
+model MatchResult {
+  id           String             @id @default(uuid())
+  imageUrl     String             // The hosted URL of the screenshot
+  status       VerificationStatus @default(PENDING)
+  
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  
+  tournament   Tournament         @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  tournamentId String
+
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  // Ensures a user can only submit one screenshot per tournament
+  @@unique([userId, tournamentId])
 }

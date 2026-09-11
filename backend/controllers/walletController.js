@@ -4,21 +4,26 @@ const prisma = new PrismaClient();
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 
-// Initialize Razorpay with your API keys (we will use these in the final task)
+// Initialize Razorpay with your API keys
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID || 'dummy_key',
     key_secret: process.env.RAZORPAY_KEY_SECRET || 'dummy_secret',
 });
 
-// @desc    Get logged-in user's wallet balance & history
+// @desc    Get logged-in user's triple wallet balances & history
 // @route   GET /api/wallet
 const getWallet = async (req, res) => {
     try {
-        // Unifying the balance to pull directly from the User table
         const user = await prisma.user.findUnique({
             where: { id: req.user.id },
-            select: { walletBalance: true }
+            select: { 
+                depositBalance: true,
+                winningBalance: true,
+                bonusBalance: true
+            }
         });
+
+        if (!user) return res.status(404).json({ error: 'User not found' });
 
         const transactions = await prisma.transaction.findMany({
             where: { userId: req.user.id },
@@ -26,10 +31,16 @@ const getWallet = async (req, res) => {
             take: 10
         });
 
-        if (!user) return res.status(404).json({ error: 'User not found' });
+        // Calculate total combined balance for the frontend's main display
+        const totalBalance = (user.depositBalance || 0) + (user.winningBalance || 0) + (user.bonusBalance || 0);
 
-        // If walletBalance is null/undefined, default to 0
-        res.status(200).json({ balance: user.walletBalance || 0, transactions });
+        res.status(200).json({ 
+            balance: totalBalance, // Keeps your current frontend from breaking
+            depositBalance: user.depositBalance || 0,
+            winningBalance: user.winningBalance || 0,
+            bonusBalance: user.bonusBalance || 0,
+            transactions 
+        });
     } catch (error) {
         console.error("Error fetching wallet:", error);
         res.status(500).json({ error: 'Server error fetching wallet.' });
@@ -83,6 +94,7 @@ const verifyPayment = async (req, res) => {
             .digest("hex");
 
         if (razorpay_signature !== expectedSign) {
+            // Mark transaction as failed if signature doesn't match
             await prisma.transaction.update({
                 where: { razorpayOrderId: razorpay_order_id },
                 data: { status: 'FAILED' }
@@ -90,13 +102,15 @@ const verifyPayment = async (req, res) => {
             return res.status(400).json({ error: "Invalid payment signature!" });
         }
 
-        const pendingTx = await prisma.transaction.findUnique({ where: { razorpayOrderId: razorpay_order_id } });
+        const pendingTx = await prisma.transaction.findUnique({ 
+            where: { razorpayOrderId: razorpay_order_id } 
+        });
         
         if (!pendingTx || pendingTx.status === 'SUCCESS') {
             return res.status(400).json({ error: 'Transaction invalid or already processed.' });
         }
 
-        // Add money to the USER table safely
+        // 💰 UPDATED: Add money strictly to the depositBalance
         await prisma.$transaction([
             prisma.transaction.update({
                 where: { razorpayOrderId: razorpay_order_id },
@@ -104,7 +118,7 @@ const verifyPayment = async (req, res) => {
             }),
             prisma.user.update({
                 where: { id: userId },
-                data: { walletBalance: { increment: pendingTx.amount } }
+                data: { depositBalance: { increment: pendingTx.amount } }
             })
         ]);
 
@@ -115,4 +129,46 @@ const verifyPayment = async (req, res) => {
     }
 };
 
-module.exports = { getWallet, createOrder, verifyPayment };
+// @desc    Step 3: Request Withdrawal
+// @route   POST /api/wallet/withdraw
+const requestWithdrawal = async (req, res) => {
+    try {
+        const { amount, upiId } = req.body;
+        const userId = req.user.id;
+
+        if (!amount || amount < 100) return res.status(400).json({ error: 'Minimum withdrawal is ₹100.' });
+        if (!upiId) return res.status(400).json({ error: 'UPI ID is required.' });
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) return res.status(404).json({ error: 'User not found.' });
+
+        if (user.winningBalance < amount) {
+            return res.status(400).json({ error: 'Insufficient winning balance.' });
+        }
+
+        // Deduct from winning balance and create pending withdrawal transaction
+        await prisma.$transaction([
+            prisma.user.update({
+                where: { id: userId },
+                data: { winningBalance: { decrement: amount } }
+            }),
+            prisma.transaction.create({
+                data: {
+                    userId,
+                    amount,
+                    type: 'DEBIT',
+                    status: 'PENDING',
+                    description: 'Withdrawal to UPI',
+                    upiId
+                }
+            })
+        ]);
+
+        res.status(200).json({ message: "Withdrawal request submitted successfully!" });
+    } catch (error) {
+        console.error("Withdrawal Request Error:", error);
+        res.status(500).json({ error: 'Server error requesting withdrawal.' });
+    }
+};
+
+module.exports = { getWallet, createOrder, verifyPayment, requestWithdrawal };

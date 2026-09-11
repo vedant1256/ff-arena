@@ -5,7 +5,23 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '../../store/useAuthStore';
 import api from '../../lib/axios';
-import { Gamepad2, ShieldAlert, Loader2, CheckSquare, Square, X } from 'lucide-react';
+import { Gamepad2, ShieldAlert, Loader2, CheckSquare, Square, X, MapPin } from 'lucide-react';
+
+// 🛑 Razorpay Restricted States
+const RESTRICTED_STATES = [
+  "Andhra Pradesh", "Assam", "Odisha", "Telangana", "Nagaland", "Sikkim"
+];
+
+// All Indian States
+const INDIAN_STATES = [
+  "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", 
+  "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli", "Daman and Diu", "Delhi", 
+  "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand", 
+  "Karnataka", "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh", "Maharashtra", 
+  "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", 
+  "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", 
+  "Uttarakhand", "West Bengal"
+];
 
 const GoogleIcon = () => (
   <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -24,6 +40,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  const [state, setState] = useState('');
+  const [dob, setDob] = useState('');
   
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,6 +51,20 @@ export default function LoginPage() {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [termsChecked, setTermsChecked] = useState(false);
   const [pendingAction, setPendingAction] = useState<any>(null); 
+
+  const isEighteenOrOlder = (dateString: string) => {
+    if (!dateString) return false;
+    const birthDate = new Date(dateString);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age >= 18;
+  };
+
+  const isValidAge = isEighteenOrOlder(dob);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +87,15 @@ export default function LoginPage() {
       }
     } else {
       // User filled details -> Save them in state -> Show Terms Modal
-      setPendingAction({ type: 'manual', payload: { username, email, password } });
+      if (!state) {
+        setError("Please select your State of Residence.");
+        return;
+      }
+      if (RESTRICTED_STATES.includes(state)) {
+        setError("Cash tournaments are banned in your state. Registration not allowed.");
+        return;
+      }
+      setPendingAction({ type: 'manual', payload: { username, email, password, state } });
       setTermsChecked(false);
       setShowTermsModal(true);
     }
@@ -78,18 +118,29 @@ export default function LoginPage() {
         scope: 'email profile',
         callback: async (tokenResponse: any) => {
           if (tokenResponse && tokenResponse.access_token) {
-            try {
-              const res = await api.post('/auth/google', { access_token: tokenResponse.access_token });
-              
-              // Backend says Google user is NEW -> Show Terms Modal
-              if (res.data?.requiresTerms) {
-                setPendingAction({ type: 'google', payload: { access_token: tokenResponse.access_token } });
-                setTermsChecked(false);
-                setShowTermsModal(true);
+            if (!isLogin) {
+              if (!state) {
+                setError("Please select your State of Residence before signing up with Google.");
+                setGoogleLoading(false);
                 return;
               }
+              if (RESTRICTED_STATES.includes(state)) {
+                setError("Cash tournaments are banned in your state. Registration not allowed.");
+                setGoogleLoading(false);
+                return;
+              }
+              // For new signups, show Terms Modal before hitting backend to create account
+              setPendingAction({ type: 'google', payload: { access_token: tokenResponse.access_token, state } });
+              setTermsChecked(false);
+              setShowTermsModal(true);
+              setGoogleLoading(false);
+              return;
+            }
 
-              // Backend says Google user is RETURNING -> Log them in!
+            try {
+              // Existing user login
+              const res = await api.post('/auth/google', { access_token: tokenResponse.access_token });
+              
               const token = res.data?.token;
               if (token && typeof window !== 'undefined') {
                 localStorage.setItem('token', token);
@@ -204,7 +255,7 @@ export default function LoginPage() {
                   {termsChecked ? <CheckSquare size={22} className="text-[#00F0FF]" /> : <Square size={22} className="text-gray-600 group-hover:text-gray-400 transition" />}
                 </div>
                 <span className={`text-sm leading-relaxed transition ${termsChecked ? 'text-gray-200 font-medium' : 'text-gray-500'}`}>
-                  I have read, understood, and legally agree to abide by the FF Arena Rules, Anti-Cheat Guidelines, and Refund Policy.
+                  I have read, understood, and legally agree to abide by the VPS EsportsHub Rules, Anti-Cheat Guidelines, and Refund Policy.
                 </span>
               </button>
               <div className="flex flex-col sm:flex-row gap-4">
@@ -227,7 +278,7 @@ export default function LoginPage() {
           <div className="bg-[#b026ff]/10 p-4 rounded-2xl mb-4 border border-[#b026ff]/30">
             <Gamepad2 className="text-[#b026ff]" size={40} />
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-widest uppercase">FF Arena</h1>
+          <h1 className="text-3xl font-extrabold text-white tracking-widest uppercase">VPS EsportsHub</h1>
           <p className="text-gray-500 text-sm mt-1">{isLogin ? 'Welcome back, Champion' : 'Create your gaming legacy'}</p>
         </div>
 
@@ -239,10 +290,54 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Gamer Tag (Username)</label>
-              <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-[#0A0C10] border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-[#b026ff] outline-none transition" placeholder="e.g., HeadshotKing" />
-            </div>
+            <>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Gamer Tag (Username)</label>
+                <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-[#0A0C10] border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-[#b026ff] outline-none transition" placeholder="e.g., HeadshotKing" />
+              </div>
+              
+              {/* 🚀 Geofencing: State Selection */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">State of Residence</label>
+                <div className="relative">
+                  <MapPin className={`absolute left-4 top-1/2 -translate-y-1/2 ${RESTRICTED_STATES.includes(state) ? 'text-red-500' : 'text-gray-500'}`} size={18} />
+                  <select 
+                    required
+                    value={state}
+                    onChange={(e) => { setState(e.target.value); setError(''); }}
+                    className={`w-full bg-[#0A0C10] border rounded-xl py-3 pl-11 pr-4 outline-none transition appearance-none text-white ${RESTRICTED_STATES.includes(state) ? 'border-red-500 focus:border-red-500' : 'border-gray-800 focus:border-[#b026ff]'}`}
+                  >
+                    <option value="">Select your State</option>
+                    {INDIAN_STATES.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+                {RESTRICTED_STATES.includes(state) && (
+                  <p className="text-xs text-red-400 mt-2 font-semibold">
+                    Cash tournaments are banned in {state}.
+                  </p>
+                )}
+              </div>
+
+              {/* 🚀 Age Verification: Date of Birth */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Date of Birth</label>
+                <input 
+                  type="date" 
+                  required 
+                  value={dob} 
+                  onChange={(e) => setDob(e.target.value)} 
+                  className={`w-full bg-[#0A0C10] border rounded-xl px-4 py-3 outline-none transition text-white ${dob && !isValidAge ? 'border-red-500 focus:border-red-500' : 'border-gray-800 focus:border-[#b026ff]'}`}
+                  max={new Date().toISOString().split("T")[0]}
+                />
+                {dob && !isValidAge && (
+                  <p className="text-xs text-red-400 mt-2 font-semibold">
+                    You must be at least 18 years old to register.
+                  </p>
+                )}
+              </div>
+            </>
           )}
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Email Address</label>
@@ -252,7 +347,8 @@ export default function LoginPage() {
             <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Password</label>
             <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-[#0A0C10] border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-[#b026ff] outline-none transition" placeholder="••••••••" />
           </div>
-          <button type="submit" disabled={loading || googleLoading} className="w-full py-3.5 rounded-xl font-extrabold uppercase tracking-widest transition-all mt-6 flex justify-center items-center gap-2 bg-[#b026ff] hover:bg-[#901ecc] text-white active:scale-95 shadow-[0_0_20px_rgba(176,38,255,0.4)] disabled:opacity-70">
+
+          <button type="submit" disabled={loading || googleLoading || (!isLogin && !isValidAge) || RESTRICTED_STATES.includes(state)} className="w-full py-3.5 rounded-xl font-extrabold uppercase tracking-widest transition-all mt-6 flex justify-center items-center gap-2 bg-[#b026ff] hover:bg-[#901ecc] text-white active:scale-95 shadow-[0_0_20px_rgba(176,38,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed">
             {loading && !showTermsModal ? <Loader2 className="animate-spin" size={20} /> : (isLogin ? 'Enter Arena' : 'Initialize Account')}
           </button>
         </form>
@@ -263,7 +359,7 @@ export default function LoginPage() {
           <div className="flex-grow border-t border-gray-800"></div>
         </div>
 
-        <button type="button" disabled={loading || googleLoading} onClick={handleGoogleLogin} className="w-full flex justify-center items-center gap-3 bg-white hover:bg-gray-200 text-black font-extrabold py-3.5 rounded-xl transition-all active:scale-95 disabled:opacity-70">
+        <button type="button" disabled={loading || googleLoading || (!isLogin && !isValidAge) || RESTRICTED_STATES.includes(state)} onClick={handleGoogleLogin} className="w-full flex justify-center items-center gap-3 bg-white hover:bg-gray-200 text-black font-extrabold py-3.5 rounded-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
           {googleLoading ? <Loader2 className="animate-spin text-black" size={20} /> : <GoogleIcon />}
           {googleLoading ? 'Connecting...' : 'Continue with Google'}
         </button>

@@ -1,4 +1,4 @@
-# 🎮 FF Arena — Free Fire Tournament Platform
+# 🎮 VPS EsportsHub — Free Fire Tournament Platform
 
 A full-stack esports tournament platform for Free Fire (India-focused).
 Players join tournaments by paying via UPI, admin manages everything via dashboard.
@@ -8,7 +8,7 @@ Players join tournaments by paying via UPI, admin manages everything via dashboa
 ## 📁 Project Structure
 
 ```
-ff-arena/
+vps-esportshub/
 ├── backend/        → Node.js + Express + MongoDB API
 └── frontend/       → Next.js 14 + TypeScript + Tailwind CSS
 ```
@@ -25,7 +25,7 @@ Extract this zip to a folder on your computer.
 ### Step 2 — Setup Backend
 
 ```bash
-cd ff-arena/backend
+cd vps-esportshub/backend
 npm install
 ```
 
@@ -52,7 +52,7 @@ Test it: http://localhost:5000/api/health
 ### Step 3 — Setup Frontend
 
 ```bash
-cd ff-arena/frontend
+cd vps-esportshub/frontend
 npm install
 ```
 
@@ -194,12 +194,7 @@ Then login at http://localhost:3000/login with:
 
 ---
 
-## 📞 UPI Details
 
-- **UPI ID:** shrikrishnadevkar60@oksbi
-- **Name:** Shrikrishna Devkar
-
----
 
 ## 🎯 Tournament Types Supported
 

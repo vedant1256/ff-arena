@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from "@/lib/axios";
 import { useAuthStore } from "@/store/useAuthStore"; 
-import { ShieldAlert, PlusCircle, Users, Ban, CheckCircle, ArrowLeft, Radio, Save, Trophy, Trash2, Eye } from 'lucide-react';
+import { ShieldAlert, PlusCircle, Users, Ban, CheckCircle, ArrowLeft, Radio, Save, Trophy, Trash2, Eye, Banknote, Check, X as XIcon } from 'lucide-react';
 
 const getDefaultDateTime = () => {
   const now = new Date();
@@ -27,7 +27,7 @@ export default function AdminPage() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isUserAdmin, setIsUserAdmin] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'TOURNAMENTS' | 'PLAYERS'>('TOURNAMENTS');
+  const [activeTab, setActiveTab] = useState<'TOURNAMENTS' | 'PLAYERS' | 'WITHDRAWALS'>('TOURNAMENTS');
   const [formData, setFormData] = useState({ 
     title: '', gameName: 'Battle Royale', map: 'Bermuda', teamMode: 'Solo',
     minLevel: 40, entryFee: 0, prizePool: 0, maxParticipants: 48, scheduledAt: getDefaultDateTime() 
@@ -36,6 +36,7 @@ export default function AdminPage() {
   const [tMessage, setTMessage] = useState('');
   const [players, setPlayers] = useState<any[]>([]);
   const [tournaments, setTournaments] = useState<any[]>([]);
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [pMessage, setPMessage] = useState('');
   const [editData, setEditData] = useState<{[key: string]: { roomId: string, roomPassword: string, status: string }}>({});
   const [winnerInputs, setWinnerInputs] = useState<{[key: string]: string}>({});
@@ -57,6 +58,7 @@ export default function AdminPage() {
           setIsUserAdmin(true);
           fetchPlayers(config);
           fetchTournaments(config);
+          fetchWithdrawals(config);
         } else {
           router.push('/dashboard');
         }
@@ -73,6 +75,11 @@ export default function AdminPage() {
 
   const fetchPlayers = async (config: any) => {
     try { const res = await api.get('/admin/users', config); setPlayers(res.data); } 
+    catch (err) { console.error(err); }
+  };
+
+  const fetchWithdrawals = async (config: any) => {
+    try { const res = await api.get('/admin/withdrawals', config); setWithdrawals(res.data); } 
     catch (err) { console.error(err); }
   };
 
@@ -174,6 +181,20 @@ export default function AdminPage() {
     } catch (err: any) { alert(err.response?.data?.error || 'Failed to update player.'); }
   };
 
+  const handleProcessWithdrawal = async (id: string, action: 'APPROVE' | 'REJECT') => {
+    if (!window.confirm(`Are you sure you want to ${action} this withdrawal request?`)) return;
+    try {
+      const currentToken = localStorage.getItem('token') || '';
+      const config = { headers: { Authorization: `Bearer ${currentToken}` } };
+      
+      const res = await api.put(`/admin/withdrawals/${id}/process`, { action }, config);
+      alert(res.data.message);
+      fetchWithdrawals(config);
+    } catch (err: any) {
+      alert(err.response?.data?.error || `Failed to ${action} withdrawal.`);
+    }
+  };
+
   if (isCheckingAuth) {
     return (
       <div className="min-h-screen bg-[#090B10] flex flex-col justify-center items-center gap-4 text-[#00F0FF]">
@@ -202,12 +223,18 @@ export default function AdminPage() {
         </Link>
       </div>
 
-      <div className="flex gap-4">
-        <button onClick={() => setActiveTab('TOURNAMENTS')} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${activeTab === 'TOURNAMENTS' ? 'bg-[#b026ff]/20 text-[#b026ff] border border-[#b026ff]/50' : 'bg-[#11141D] text-gray-500 border border-gray-800 hover:text-gray-300'}`}>
+      <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
+        <button onClick={() => setActiveTab('TOURNAMENTS')} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all whitespace-nowrap ${activeTab === 'TOURNAMENTS' ? 'bg-[#b026ff]/20 text-[#b026ff] border border-[#b026ff]/50' : 'bg-[#11141D] text-gray-500 border border-gray-800 hover:text-gray-300'}`}>
           <PlusCircle size={18} /> Manage Tournaments
         </button>
-        <button onClick={() => setActiveTab('PLAYERS')} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${activeTab === 'PLAYERS' ? 'bg-[#00F0FF]/20 text-[#00F0FF] border border-[#00F0FF]/50' : 'bg-[#11141D] text-gray-500 border border-gray-800 hover:text-gray-300'}`}>
+        <button onClick={() => setActiveTab('PLAYERS')} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all whitespace-nowrap ${activeTab === 'PLAYERS' ? 'bg-[#00F0FF]/20 text-[#00F0FF] border border-[#00F0FF]/50' : 'bg-[#11141D] text-gray-500 border border-gray-800 hover:text-gray-300'}`}>
           <Users size={18} /> Player Moderation
+        </button>
+        <button onClick={() => setActiveTab('WITHDRAWALS')} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all whitespace-nowrap ${activeTab === 'WITHDRAWALS' ? 'bg-green-500/20 text-green-400 border border-green-500/50' : 'bg-[#11141D] text-gray-500 border border-gray-800 hover:text-gray-300'}`}>
+          <Banknote size={18} /> Withdrawals
+          {withdrawals.length > 0 && (
+            <span className="bg-green-500 text-black text-xs px-2 py-0.5 rounded-full ml-1 animate-pulse">{withdrawals.length}</span>
+          )}
         </button>
       </div>
 
@@ -435,6 +462,62 @@ export default function AdminPage() {
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'WITHDRAWALS' && (
+        <div className="bg-[#11141D] p-8 rounded-2xl border border-gray-800/60 shadow-xl">
+          <h2 className="text-xl font-bold mb-6 text-white flex items-center gap-2">
+            <Banknote className="text-green-400" /> Pending Withdrawal Requests
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-gray-800 text-xs uppercase text-gray-500">
+                  <th className="py-3 px-4">Player</th>
+                  <th className="py-3 px-4">Amount</th>
+                  <th className="py-3 px-4">UPI ID</th>
+                  <th className="py-3 px-4">Requested At</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {withdrawals.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-8 text-gray-500 text-sm">No pending withdrawal requests.</td>
+                  </tr>
+                ) : (
+                  withdrawals.map(w => (
+                    <tr key={w.id} className="border-b border-gray-900/50 hover:bg-[#0A0C10]/50 transition">
+                      <td className="py-4 px-4">
+                        <p className="font-bold text-white">{w.user?.username}</p>
+                        <p className="text-xs text-gray-500">{w.user?.email}</p>
+                      </td>
+                      <td className="py-4 px-4 font-extrabold text-green-400">₹{w.amount}</td>
+                      <td className="py-4 px-4 text-gray-300 font-mono text-sm">{w.upiId || 'N/A'}</td>
+                      <td className="py-4 px-4 text-gray-500 text-xs">{new Date(w.createdAt).toLocaleString()}</td>
+                      <td className="py-4 px-4 text-right flex justify-end gap-2">
+                        <button 
+                          onClick={() => handleProcessWithdrawal(w.id, 'APPROVE')} 
+                          title="Mark as Paid"
+                          className="bg-green-500/10 text-green-500 hover:bg-green-500/20 border border-green-500/30 px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1"
+                        >
+                          <Check size={14} /> Paid
+                        </button>
+                        <button 
+                          onClick={() => handleProcessWithdrawal(w.id, 'REJECT')} 
+                          title="Reject and Refund"
+                          className="bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/30 px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1"
+                        >
+                          <XIcon size={14} /> Reject
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

@@ -2,10 +2,14 @@
 import type { Metadata } from 'next';
 import Script from 'next/script';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+
+// 🚀 Imports
+import Navbar from '../components/layout/Navbar'; 
+import Footer from '../components/Footer'; 
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'FF-ARENA | Premium Esports Tournaments',
+  title: 'VPS-ESPORTSHUB | Premium Esports Tournaments',
   description: 'Join custom rooms, compete in tournaments, and build your gaming profile.',
 };
 
@@ -16,12 +20,21 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen antialiased selection:bg-[#00F0FF] selection:text-black">
+      <body className="min-h-screen flex flex-col antialiased selection:bg-[#00F0FF] selection:text-black bg-[#07070F]">
         {/* Wrap the app in the Google Auth Provider */}
         <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || 'dummy_client_id'}>
-          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-12">
+          
+          {/* 🚀 Navbar stays fixed at the top */}
+          <Navbar />
+
+          {/* 🚀 FIX: Changed pt-6 to pt-28 (112px) to push content below the fixed 64px Navbar */}
+          <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-12">
             {children}
           </main>
+
+          {/* 🚀 Footer stays at the bottom */}
+          <Footer />
+
         </GoogleOAuthProvider>
         
         {/* Load Razorpay Checkout library asynchronously */}
