@@ -75,6 +75,11 @@ app.use(express.json());
 // 🛣️ ROUTES & SPECIFIC RATE LIMITS
 // ==========================================
 
+// 🚀 Ultra-lightweight Health Check for Render Keep-Alive (Zero DB queries)
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: Date.now() });
+});
+
 // Strict Limit for Auth Routes (Prevents Brute Force Password attacks)
 const authLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 Hour
