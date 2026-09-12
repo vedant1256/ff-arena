@@ -49,8 +49,12 @@ const handleSmsWebhook = async (req, res) => {
       const parsedAmount = parseFloat(amount);
       if (parsedAmount >= payment.expectedAmount) {
         // 4. Match Success -> Approve
-        await tx.paymentTransaction.update({
-          where: { id: payment.id },
+        // 🛡️ SECURITY PATCH: Atomic Lock on status transition to prevent duplicate concurrent webhook processing
+        const updatedPayment = await tx.paymentTransaction.updateMany({
+          where: { 
+            id: payment.id,
+            status: 'PENDING_VERIFICATION' // Strict conditional lock
+          },
           data: {
             status: 'APPROVED',
             creditedAmount: parsedAmount,
@@ -58,6 +62,11 @@ const handleSmsWebhook = async (req, res) => {
             rawWebhookLog: JSON.stringify(req.body)
           }
         });
+
+        // Check if race condition occurred
+        if (updatedPayment.count === 0) {
+          return { status: 'ALREADY_PROCESSED' };
+        }
 
         // Add user to tournament
         await tx.user.update({
@@ -74,8 +83,11 @@ const handleSmsWebhook = async (req, res) => {
         return { status: 'APPROVED' };
       } else {
         // 5. Amount mismatch -> Fail
-        await tx.paymentTransaction.update({
-          where: { id: payment.id },
+        const failedPayment = await tx.paymentTransaction.updateMany({
+          where: { 
+            id: payment.id,
+            status: 'PENDING_VERIFICATION'
+          },
           data: {
             status: 'FAILED_MISMATCH',
             creditedAmount: parsedAmount,
@@ -83,6 +95,10 @@ const handleSmsWebhook = async (req, res) => {
             rawWebhookLog: JSON.stringify(req.body)
           }
         });
+
+        if (failedPayment.count === 0) {
+          return { status: 'ALREADY_PROCESSED' };
+        }
         
         return { status: 'FAILED_MISMATCH' };
       }

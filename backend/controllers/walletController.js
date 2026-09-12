@@ -146,13 +146,21 @@ const requestWithdrawal = async (req, res) => {
             return res.status(400).json({ error: 'Insufficient winning balance.' });
         }
 
-        // Deduct from winning balance and create pending withdrawal transaction
-        await prisma.$transaction([
-            prisma.user.update({
-                where: { id: userId },
+        // 🛡️ SECURITY PATCH: Atomic Database Lock to prevent negative balance race conditions
+        const result = await prisma.$transaction(async (tx) => {
+            const updatedUser = await tx.user.updateMany({
+                where: { 
+                    id: userId,
+                    winningBalance: { gte: amount } // The DB strictly enforces the balance check
+                },
                 data: { winningBalance: { decrement: amount } }
-            }),
-            prisma.transaction.create({
+            });
+
+            if (updatedUser.count === 0) {
+                throw new Error("Insufficient balance or concurrent transaction detected.");
+            }
+
+            const pendingTx = await tx.transaction.create({
                 data: {
                     userId,
                     amount,
@@ -161,11 +169,16 @@ const requestWithdrawal = async (req, res) => {
                     description: 'Withdrawal to UPI',
                     upiId
                 }
-            })
-        ]);
+            });
+
+            return pendingTx;
+        });
 
         res.status(200).json({ message: "Withdrawal request submitted successfully!" });
     } catch (error) {
+        if (error.message === "Insufficient balance or concurrent transaction detected.") {
+            return res.status(400).json({ error: error.message });
+        }
         console.error("Withdrawal Request Error:", error);
         res.status(500).json({ error: 'Server error requesting withdrawal.' });
     }

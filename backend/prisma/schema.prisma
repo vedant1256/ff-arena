@@ -167,7 +167,7 @@ model MatchResult {
 // 🚀 NEW MODEL: Manual QR Payment Match Join Request
 model MatchJoinRequest {
   id           String             @id @default(uuid())
-  utr          String             // The UPI Transaction ID
+  utr          String             @unique // The UPI Transaction ID
   status       VerificationStatus @default(PENDING) // Reusing VerificationStatus (PENDING, APPROVED, REJECTED)
   
   user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
