@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from "@/lib/axios";
 import { useAuthStore } from "@/store/useAuthStore"; 
-import { ShieldAlert, PlusCircle, Users, Ban, CheckCircle, ArrowLeft, Radio, Save, Trophy, Trash2, Eye, Banknote, Check, X as XIcon } from 'lucide-react';
+import { ShieldAlert, PlusCircle, Users, Ban, CheckCircle, ArrowLeft, Radio, Save, Trophy, Trash2, Eye, Banknote, Check, X as XIcon, QrCode } from 'lucide-react';
 
 const getDefaultDateTime = () => {
   const now = new Date();
@@ -27,7 +27,7 @@ export default function AdminPage() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isUserAdmin, setIsUserAdmin] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'TOURNAMENTS' | 'PLAYERS' | 'WITHDRAWALS'>('TOURNAMENTS');
+  const [activeTab, setActiveTab] = useState<'TOURNAMENTS' | 'PLAYERS' | 'WITHDRAWALS' | 'MATCH_APPROVALS'>('TOURNAMENTS');
   const [formData, setFormData] = useState({ 
     title: '', gameName: 'Battle Royale', map: 'Bermuda', teamMode: 'Solo',
     minLevel: 40, entryFee: 0, prizePool: 0, maxParticipants: 48, scheduledAt: getDefaultDateTime() 
@@ -37,6 +37,7 @@ export default function AdminPage() {
   const [players, setPlayers] = useState<any[]>([]);
   const [tournaments, setTournaments] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [matchRequests, setMatchRequests] = useState<any[]>([]);
   const [pMessage, setPMessage] = useState('');
   const [editData, setEditData] = useState<{[key: string]: { roomId: string, roomPassword: string, status: string }}>({});
   const [winnerInputs, setWinnerInputs] = useState<{[key: string]: string}>({});
@@ -59,6 +60,7 @@ export default function AdminPage() {
           fetchPlayers(config);
           fetchTournaments(config);
           fetchWithdrawals(config);
+          fetchMatchRequests(config);
         } else {
           router.push('/dashboard');
         }
@@ -80,6 +82,11 @@ export default function AdminPage() {
 
   const fetchWithdrawals = async (config: any) => {
     try { const res = await api.get('/admin/withdrawals', config); setWithdrawals(res.data); } 
+    catch (err) { console.error(err); }
+  };
+
+  const fetchMatchRequests = async (config: any) => {
+    try { const res = await api.get('/admin/join-requests', config); setMatchRequests(res.data); } 
     catch (err) { console.error(err); }
   };
 
@@ -195,6 +202,20 @@ export default function AdminPage() {
     }
   };
 
+  const handleProcessMatchRequest = async (id: string, action: 'APPROVE' | 'REJECT') => {
+    if (!window.confirm(`Are you sure you want to ${action} this UTR payment?`)) return;
+    try {
+      const currentToken = localStorage.getItem('token') || '';
+      const config = { headers: { Authorization: `Bearer ${currentToken}` } };
+      
+      const res = await api.post(`/admin/join-requests/${id}/verify`, { action }, config);
+      alert(res.data.message);
+      fetchMatchRequests(config);
+    } catch (err: any) {
+      alert(err.response?.data?.error || `Failed to process match request.`);
+    }
+  };
+
   if (isCheckingAuth) {
     return (
       <div className="min-h-screen bg-[#090B10] flex flex-col justify-center items-center gap-4 text-[#00F0FF]">
@@ -234,6 +255,12 @@ export default function AdminPage() {
           <Banknote size={18} /> Withdrawals
           {withdrawals.length > 0 && (
             <span className="bg-green-500 text-black text-xs px-2 py-0.5 rounded-full ml-1 animate-pulse">{withdrawals.length}</span>
+          )}
+        </button>
+        <button onClick={() => setActiveTab('MATCH_APPROVALS')} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all whitespace-nowrap ${activeTab === 'MATCH_APPROVALS' ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/50' : 'bg-[#11141D] text-gray-500 border border-gray-800 hover:text-gray-300'}`}>
+          <QrCode size={18} /> UTR Approvals
+          {matchRequests.length > 0 && (
+            <span className="bg-yellow-500 text-black text-xs px-2 py-0.5 rounded-full ml-1 animate-pulse">{matchRequests.length}</span>
           )}
         </button>
       </div>
@@ -316,6 +343,7 @@ export default function AdminPage() {
                           onChange={(e) => handleEditChange(t.id, 'status', e.target.value)}
                           className="bg-gray-900 border border-gray-700 text-xs text-gray-300 rounded px-2 py-1.5 outline-none disabled:opacity-50"
                         >
+                          <option value="UPCOMING">Upcoming</option>
                           <option value="REGISTRATION_OPEN">Registration Open</option>
                           <option value="REGISTRATION_CLOSED">Registration Closed</option>
                           <option value="COMPLETED">Completed</option>
@@ -510,6 +538,64 @@ export default function AdminPage() {
                         <button 
                           onClick={() => handleProcessWithdrawal(w.id, 'REJECT')} 
                           title="Reject and Refund"
+                          className="bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/30 px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1"
+                        >
+                          <XIcon size={14} /> Reject
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'MATCH_APPROVALS' && (
+        <div className="bg-[#11141D] p-8 rounded-2xl border border-gray-800/60 shadow-xl">
+          <h2 className="text-xl font-bold mb-6 text-white flex items-center gap-2">
+            <QrCode className="text-yellow-500" /> Pending Match Registrations (UTR)
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-gray-800 text-xs uppercase text-gray-500">
+                  <th className="py-3 px-4">Player</th>
+                  <th className="py-3 px-4">Tournament</th>
+                  <th className="py-3 px-4">Entry Fee</th>
+                  <th className="py-3 px-4 text-center">UTR / TXN ID</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {matchRequests.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-8 text-gray-500 text-sm">No pending match join requests.</td>
+                  </tr>
+                ) : (
+                  matchRequests.map(req => (
+                    <tr key={req.id} className="border-b border-gray-900/50 hover:bg-[#0A0C10]/50 transition">
+                      <td className="py-4 px-4">
+                        <p className="font-bold text-white">{req.user?.username}</p>
+                        <p className="text-xs text-[#00F0FF]">{req.user?.freeFireUid || 'No UID'}</p>
+                      </td>
+                      <td className="py-4 px-4 font-bold text-gray-300">{req.tournament?.title}</td>
+                      <td className="py-4 px-4 font-extrabold text-yellow-500">₹{req.tournament?.entryFee}</td>
+                      <td className="py-4 px-4 text-center">
+                        <span className="bg-gray-900 border border-gray-700 px-3 py-1.5 rounded-lg text-white font-mono text-sm tracking-widest">{req.utr}</span>
+                      </td>
+                      <td className="py-4 px-4 text-right flex justify-end gap-2">
+                        <button 
+                          onClick={() => handleProcessMatchRequest(req.id, 'APPROVE')} 
+                          title="Verify Payment & Add to Match"
+                          className="bg-green-500/10 text-green-500 hover:bg-green-500/20 border border-green-500/30 px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1"
+                        >
+                          <Check size={14} /> Approve
+                        </button>
+                        <button 
+                          onClick={() => handleProcessMatchRequest(req.id, 'REJECT')} 
+                          title="Reject Fake UTR"
                           className="bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/30 px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1"
                         >
                           <XIcon size={14} /> Reject

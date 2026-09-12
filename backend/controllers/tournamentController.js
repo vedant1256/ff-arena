@@ -44,7 +44,7 @@ const getTournaments = async (req, res) => {
       if (isAdmin) {
         return t; 
       } else if (isParticipant) {
-        const { participants, ...participantData } = t;
+        const { roomId, roomPassword, participants, ...participantData } = t;
         return participantData; 
       } else {
         const { roomId, roomPassword, participants, ...publicData } = t;
@@ -91,15 +91,73 @@ const getTournamentById = async (req, res) => {
     const isAdmin = userRole === 'ADMIN' || (userEmail && ADMIN_EMAILS.includes(userEmail.toLowerCase()));
     const isParticipant = userId && tournament.participants.some(p => p.id === userId);
 
-    if (!isAdmin && !isParticipant) {
+    let isPendingVerification = false;
+
+    if (!isAdmin) {
       delete tournament.roomId;
       delete tournament.roomPassword;
     }
 
-    res.status(200).json(tournament);
+    if (!isAdmin && !isParticipant && userId) {
+      const pendingReq = await prisma.matchJoinRequest.findFirst({
+        where: { userId, tournamentId: tournament.id, status: 'PENDING' }
+      });
+      if (pendingReq) isPendingVerification = true;
+    }
+
+    res.status(200).json({ ...tournament, isPendingVerification });
   } catch (error) {
     console.error("Fetch Tournament By ID Error:", error);
     res.status(500).json({ error: 'Failed to fetch tournament details' });
+  }
+};
+
+// 2.5 🛡️ SECURE: Fetch Room Credentials
+const getRoomCredentials = async (req, res) => {
+  try {
+    const tournamentId = req.params.id;
+    const userId = req.user.id;
+
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: tournamentId }
+    });
+
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+
+    // Enforce 15 minute time gate
+    const msUntilStart = new Date(tournament.scheduledAt).getTime() - Date.now();
+    const minutesUntilStart = msUntilStart / (1000 * 60);
+
+    if (minutesUntilStart > 15) {
+      return res.status(403).json({ error: 'Room details will be revealed 15 minutes before match start.' });
+    }
+
+    // Verify user is APPROVED via automated PaymentTransaction or is Admin
+    const isAdmin = req.user.role === 'ADMIN' || (req.user.email && ADMIN_EMAILS.includes(req.user.email.toLowerCase()));
+    
+    if (!isAdmin) {
+      const payment = await prisma.paymentTransaction.findFirst({
+        where: { userId, tournamentId, status: 'APPROVED' }
+      });
+      
+      // Fallback to manual join requests for legacy users
+      const legacyPayment = await prisma.matchJoinRequest.findFirst({
+        where: { userId, tournamentId, status: 'APPROVED' }
+      });
+
+      if (!payment && !legacyPayment) {
+        return res.status(403).json({ error: 'You are not an approved participant for this match.' });
+      }
+    }
+
+    res.status(200).json({ 
+      roomId: tournament.roomId, 
+      roomPassword: tournament.roomPassword 
+    });
+
+  } catch (error) {
+    console.error("Get Room Credentials Error:", error);
+    res.status(500).json({ error: 'Failed to fetch room credentials' });
   }
 };
 
@@ -117,11 +175,16 @@ const createTournament = async (req, res) => {
   }
 };
 
-// 4. 💰 Join a Tournament 
+// 4. 💰 Submit UTR to Join a Tournament 
 const joinTournament = async (req, res) => {
   try {
     const tournamentId = req.params.id;
     const userId = req.user.id;
+    const { utr } = req.body;
+
+    if (!utr || utr.trim().length === 0) {
+      return res.status(400).json({ error: 'Transaction ID (UTR) is required.' });
+    }
 
     const user = await prisma.user.findUnique({ 
         where: { id: userId },
@@ -138,84 +201,23 @@ const joinTournament = async (req, res) => {
     const alreadyJoined = user.tournaments?.some(t => t.id === tournamentId);
     if (alreadyJoined) return res.status(400).json({ error: 'You are already registered for this match.' });
 
-    const maxBonusAllowed = tournament.entryFee * 0.5;
-    const bonusToDeduct = Math.min(user.bonusBalance, maxBonusAllowed);
-    
-    let remainingFee = tournament.entryFee - bonusToDeduct;
+    const pendingReq = await prisma.matchJoinRequest.findFirst({
+      where: { userId, tournamentId, status: 'PENDING' }
+    });
+    if (pendingReq) return res.status(400).json({ error: 'You already have a pending verification request for this match.' });
 
-    const depositToDeduct = Math.min(user.depositBalance, remainingFee);
-    remainingFee -= depositToDeduct;
-
-    const winningToDeduct = Math.min(user.winningBalance, remainingFee);
-    remainingFee -= winningToDeduct;
-
-    if (remainingFee > 0) {
-      return res.status(400).json({ error: 'Insufficient funds across your wallets. Please recharge your deposit wallet.' });
-    }
-
-    const isPaidMatch = tournament.entryFee > 0;
-    const newMatchCount = user.paidMatchesCount + (isPaidMatch ? 1 : 0);
-
-    const dbOperations = [
-      prisma.user.update({
-        where: { id: userId },
-        data: {
-          bonusBalance: { decrement: bonusToDeduct },
-          depositBalance: { decrement: depositToDeduct },
-          winningBalance: { decrement: winningToDeduct },
-          paidMatchesCount: isPaidMatch ? { increment: 1 } : undefined,
-          tournaments: { connect: { id: tournamentId } } 
-        }
-      }),
-      prisma.transaction.create({
-        data: {
-          userId: userId,
-          amount: tournament.entryFee,
-          type: 'DEBIT',
-          description: `Entry Fee: ${tournament.title}`
-        }
-      }),
-      prisma.tournament.update({
-        where: { id: tournamentId },
-        data: { currentParticipants: { increment: 1 } }
-      })
-    ];
-
-    if (isPaidMatch && user.referredBy) {
-      let bonusReward = 0;
-      let rewardDescription = '';
-
-      if (newMatchCount === 1) {
-        bonusReward = 5;
-        rewardDescription = `Referral Bonus: Friend's 1st Match`;
-      } else if (newMatchCount === 5) {
-        bonusReward = 10;
-        rewardDescription = `Referral Milestone: Friend's 5th Match`;
+    await prisma.matchJoinRequest.create({
+      data: {
+        userId,
+        tournamentId,
+        utr: utr.trim()
       }
+    });
 
-      if (bonusReward > 0) {
-        dbOperations.push(
-          prisma.user.update({
-            where: { id: user.referredBy },
-            data: { bonusBalance: { increment: bonusReward } }
-          }),
-          prisma.transaction.create({
-            data: { 
-              userId: user.referredBy, 
-              amount: bonusReward, 
-              type: 'CREDIT', 
-              description: rewardDescription 
-            }
-          })
-        );
-      }
-    }
-
-    await prisma.$transaction(dbOperations);
-    res.status(200).json({ message: 'Successfully joined the match!' });
+    res.status(200).json({ message: 'UTR submitted successfully! Admin will verify your payment soon.' });
   } catch (error) {
     console.error("Join Tournament Error:", error);
-    res.status(500).json({ error: 'Server error while joining tournament.' });
+    res.status(500).json({ error: 'Server error while submitting join request.' });
   }
 };
 
@@ -433,6 +435,81 @@ const verifyMatchResult = async (req, res) => {
   }
 };
 
+// ==========================================
+// 💸 NEW: MANUAL UTR VERIFICATION SYSTEM
+// ==========================================
+
+const getPendingJoinRequests = async (req, res) => {
+  try {
+    const requests = await prisma.matchJoinRequest.findMany({
+      where: { status: 'PENDING' },
+      include: {
+        user: { select: { id: true, username: true, freeFireUid: true } },
+        tournament: { select: { id: true, title: true, entryFee: true } }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+    res.status(200).json(requests);
+  } catch (error) {
+    console.error("Fetch Pending Join Requests Error:", error);
+    res.status(500).json({ error: "Failed to fetch requests." });
+  }
+};
+
+const verifyJoinRequest = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { action } = req.body; // 'APPROVE' or 'REJECT'
+
+    const joinReq = await prisma.matchJoinRequest.findUnique({
+      where: { id: requestId },
+      include: { tournament: true, user: true }
+    });
+
+    if (!joinReq) return res.status(404).json({ error: "Request not found." });
+    if (joinReq.status !== 'PENDING') return res.status(400).json({ error: "This request has already been processed." });
+
+    if (action === 'REJECT') {
+      await prisma.matchJoinRequest.update({
+        where: { id: requestId },
+        data: { status: 'REJECTED' }
+      });
+      return res.status(200).json({ message: "Join request rejected." });
+    }
+
+    if (action === 'APPROVE') {
+      if (joinReq.tournament.status !== 'REGISTRATION_OPEN') {
+        return res.status(400).json({ error: "Tournament is no longer open for registration." });
+      }
+      if (joinReq.tournament.currentParticipants >= joinReq.tournament.maxParticipants) {
+        return res.status(400).json({ error: "Tournament is full." });
+      }
+
+      await prisma.$transaction([
+        prisma.matchJoinRequest.update({
+          where: { id: requestId },
+          data: { status: 'APPROVED' }
+        }),
+        prisma.user.update({
+          where: { id: joinReq.userId },
+          data: { tournaments: { connect: { id: joinReq.tournamentId } } }
+        }),
+        prisma.tournament.update({
+          where: { id: joinReq.tournamentId },
+          data: { currentParticipants: { increment: 1 } }
+        })
+      ]);
+
+      return res.status(200).json({ message: `Player ${joinReq.user.username} approved and added to match.` });
+    }
+
+    res.status(400).json({ error: "Invalid action." });
+  } catch (error) {
+    console.error("Verify Join Request Error:", error);
+    res.status(500).json({ error: "Server error during verification." });
+  }
+};
+
 module.exports = { 
   getTournaments, 
   getTournamentById, 
@@ -441,7 +518,10 @@ module.exports = {
   updateTournament, 
   declareWinner, 
   deleteTournament,
-  submitMatchResult,   // 🚀 NEW
-  getPendingResults,   // 🚀 NEW
-  verifyMatchResult    // 🚀 NEW
+  submitMatchResult,
+  getPendingResults,
+  verifyMatchResult,
+  getPendingJoinRequests,
+  verifyJoinRequest,
+  getRoomCredentials
 };

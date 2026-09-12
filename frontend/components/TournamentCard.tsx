@@ -1,108 +1,51 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { Tournament } from "@/types";
-
-const TYPE_COLORS: Record<string, string> = {
-  Solo: "#00e5ff", Duo: "#7c3aed", Squad: "#10b981",
-  "Clash Squad": "#f59e0b", "BR Kill Race": "#ef4444",
-};
-
-function formatCountdown(ms: number): string {
-  if (ms <= 0) return "LIVE";
-  const h = Math.floor(ms / 3600000);
-  const m = Math.floor((ms % 3600000) / 60000);
-  const s = Math.floor((ms % 60000) / 1000);
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
-}
+import { Users, Map, Lock, IndianRupee } from "lucide-react";
 
 export default function TournamentCard({ tournament: t }: { tournament: Tournament }) {
-  const [timeLeft, setTimeLeft] = useState(new Date(t.startTime).getTime() - Date.now());
-  const color = TYPE_COLORS[t.type] || "#00e5ff";
-  const pct = Math.min(((t.filledSlots || t.participants?.length || 0) / t.slots) * 100, 100);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimeLeft(new Date(t.startTime).getTime() - Date.now());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [t.startTime]);
-
+  const percentage = Math.min(((t.currentParticipants || t.participants?.length || 0) / t.maxParticipants) * 100, 100);
+  
   return (
-    <Link href={`/tournaments/${t._id}`} style={{ textDecoration: "none", display: "block" }}>
-      <div
-        className="tournament-card"
-        style={{
-          background: "#111118",
-          border: `1px solid ${color}22`,
-          borderRadius: 12,
-          padding: 18,
-          cursor: "pointer",
-          color: "#fff",
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.border = `1px solid ${color}66`)}
-        onMouseLeave={(e) => (e.currentTarget.style.border = `1px solid ${color}22`)}
-      >
-        {/* Top row */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <span
-            style={{
-              background: color + "22", color,
-              border: `1px solid ${color}44`,
-              borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700,
-            }}
-          >
-            {t.type}
-          </span>
-          <span
-            style={{
-              background: timeLeft <= 0 ? "#ef444422" : timeLeft < 900000 ? "#f59e0b22" : "#10b98122",
-              color: timeLeft <= 0 ? "#ef4444" : timeLeft < 900000 ? "#f59e0b" : "#10b981",
-              border: `1px solid ${timeLeft <= 0 ? "#ef4444" : timeLeft < 900000 ? "#f59e0b" : "#10b981"}33`,
-              borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700,
-            }}
-            className={timeLeft <= 0 ? "live-badge" : ""}
-          >
-            {timeLeft <= 0 ? "🔴 LIVE" : `⏳ ${formatCountdown(timeLeft)}`}
-          </span>
-        </div>
-
-        <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 3 }}>{t.name}</div>
-        <div style={{ color: "#6b7280", fontSize: 12, marginBottom: 14 }}>🗺️ {t.map}</div>
-
-        {/* Stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-          <div style={{ background: "#0d0d18", borderRadius: 8, padding: "8px 10px" }}>
-            <div style={{ color: "#6b7280", fontSize: 10, marginBottom: 2 }}>ENTRY FEE</div>
-            <div style={{ color: "#fbbf24", fontWeight: 800, fontSize: 15 }}>₹{t.entryFee}</div>
+    <Link href={`/tournaments/${t.id}`} style={{ textDecoration: "none" }}>
+      <div className="bg-[#11141D] border border-gray-800 rounded-2xl overflow-hidden hover:border-[#00F0FF]/50 hover:shadow-[0_0_15px_rgba(0,240,255,0.1)] transition-all h-full flex flex-col group">
+        <div className="p-5 flex-1 flex flex-col">
+          <div className="flex justify-between items-start mb-4">
+            <span className="bg-[#00F0FF]/10 text-[#00F0FF] text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider border border-[#00F0FF]/30">
+              {t.gameName.toUpperCase()}
+            </span>
+            <span className={`text-[10px] font-bold flex items-center gap-1 uppercase ${t.status === 'REGISTRATION_OPEN' ? 'text-green-400' : 'text-gray-500'}`}>
+              {t.status === 'REGISTRATION_OPEN' ? <Lock size={12} className="opacity-0" /> : <Lock size={12} />} 
+              {t.status.replace(/_/g, ' ')}
+            </span>
           </div>
-          <div style={{ background: "#0d0d18", borderRadius: 8, padding: "8px 10px" }}>
-            <div style={{ color: "#6b7280", fontSize: 10, marginBottom: 2 }}>
-              {t.perKill > 0 ? "PER KILL" : "PRIZE POOL"}
+          
+          <h3 className="text-xl font-black text-white mb-2 group-hover:text-[#00F0FF] transition-colors">{t.title}</h3>
+          <div className="flex items-center gap-4 text-xs text-gray-400 font-semibold mb-6">
+            <span className="flex items-center gap-1"><Map size={14} className="text-gray-500"/> {t.map}</span>
+            <span className="flex items-center gap-1"><Users size={14} className="text-gray-500"/> {t.teamMode}</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mb-6 mt-auto">
+            <div className="bg-[#0A0C10] border border-gray-800 p-3 rounded-xl text-center group-hover:border-gray-700 transition-colors">
+              <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">Entry Fee</p>
+              <p className="text-yellow-500 font-black text-lg flex items-center justify-center"><IndianRupee size={16}/> {t.entryFee}</p>
             </div>
-            <div style={{ color: "#10b981", fontWeight: 800, fontSize: 15 }}>
-              {t.perKill > 0 ? `₹${t.perKill}` : `₹${t.prizePool}`}
+            <div className="bg-[#0A0C10] border border-gray-800 p-3 rounded-xl text-center group-hover:border-gray-700 transition-colors">
+              <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">Prize Pool</p>
+              <p className="text-green-400 font-black text-lg flex items-center justify-center"><IndianRupee size={16}/> {t.prizePool}</p>
             </div>
           </div>
-        </div>
 
-        {/* Slot progress */}
-        <div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6b7280", marginBottom: 4 }}>
-            <span>Players</span>
-            <span>{t.participants?.length || 0}/{t.slots}</span>
-          </div>
-          <div style={{ background: "#1a1a2e", borderRadius: 4, height: 5 }}>
-            <div
-              style={{
-                background: pct >= 100 ? "#ef4444" : color,
-                borderRadius: 4, height: "100%",
-                width: `${pct}%`, transition: "width 0.3s",
-              }}
-            />
+          <div>
+            <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">
+              <span>Slots Filled</span>
+              <span>{t.currentParticipants || t.participants?.length || 0}/{t.maxParticipants}</span>
+            </div>
+            <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
+              <div className="h-full bg-[#00F0FF] transition-all duration-1000" style={{ width: `${percentage}%` }}></div>
+            </div>
           </div>
         </div>
       </div>

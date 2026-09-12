@@ -6,6 +6,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 // 🚀 Imports
 import Navbar from '../components/layout/Navbar'; 
 import Footer from '../components/Footer'; 
+import { Toaster } from 'react-hot-toast';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -36,6 +37,16 @@ export default function RootLayout({
           <Footer />
 
         </GoogleOAuthProvider>
+        
+        {/* Global Toast Notifications */}
+        <Toaster 
+          position="bottom-center"
+          toastOptions={{
+            style: { background: '#11141D', color: '#fff', border: '1px solid #374151', borderRadius: '12px' },
+            success: { iconTheme: { primary: '#00F0FF', secondary: '#000' } },
+            error: { iconTheme: { primary: '#EF4444', secondary: '#000' } }
+          }} 
+        />
         
         {/* Load Razorpay Checkout library asynchronously */}
         <Script 

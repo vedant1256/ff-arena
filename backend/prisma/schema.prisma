@@ -44,6 +44,14 @@ enum VerificationStatus {
   REJECTED
 }
 
+// 🚀 NEW: Payment Status for Automated Webhooks
+enum PaymentStatus {
+  PENDING_VERIFICATION
+  APPROVED
+  FAILED_MISMATCH
+  CONSUMED
+}
+
 // --- MODELS ---
 model User {
   id               String   @id @default(uuid())
@@ -73,6 +81,12 @@ model User {
   
   // 🚀 NEW: Relation to their uploaded match results
   matchResults     MatchResult[]
+  
+  // 🚀 NEW: Relation to their pending/approved QR join requests
+  matchJoinRequests MatchJoinRequest[]
+  
+  // 🚀 NEW: Relation to PaymentTransactions
+  paymentTransactions PaymentTransaction[]
   
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -121,6 +135,12 @@ model Tournament {
   // 🚀 NEW: Relation to results submitted for this tournament
   matchResults        MatchResult[]
 
+  // 🚀 NEW: Relation to QR manual join requests
+  matchJoinRequests   MatchJoinRequest[]
+
+  // 🚀 NEW: Relation to automated payment transactions
+  paymentTransactions PaymentTransaction[]
+
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 }
@@ -142,4 +162,49 @@ model MatchResult {
 
   // Ensures a user can only submit one screenshot per tournament
   @@unique([userId, tournamentId])
+}
+
+// 🚀 NEW MODEL: Manual QR Payment Match Join Request
+model MatchJoinRequest {
+  id           String             @id @default(uuid())
+  utr          String             // The UPI Transaction ID
+  status       VerificationStatus @default(PENDING) // Reusing VerificationStatus (PENDING, APPROVED, REJECTED)
+  
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  
+  tournament   Tournament         @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  tournamentId String
+
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([userId, tournamentId])
+}
+
+// 🚀 NEW MODEL: Automated UTR Payment Verification
+model PaymentTransaction {
+  id              String         @id @default(uuid())
+  userId          String
+  tournamentId    String
+  expectedAmount  Float
+  creditedAmount  Float?
+  submittedUtr    String         @unique
+  status          PaymentStatus  @default(PENDING_VERIFICATION)
+  createdAt       DateTime       @default(now())
+  verifiedAt      DateTime?
+  rawWebhookLog   String?
+
+  user            User           @relation(fields: [userId], references: [id])
+  tournament      Tournament     @relation(fields: [tournamentId], references: [id])
+}
+
+// 🚀 NEW MODEL: Webhooks received that don't match any pending user submission
+model UnclaimedDeposit {
+  id            String    @id @default(uuid())
+  utr           String    @unique
+  amount        Float
+  sender        String?
+  timestamp     DateTime?
+  createdAt     DateTime  @default(now())
 }

@@ -2,50 +2,56 @@
 const express = require('express');
 const router = express.Router();
 
-// 🚀 NEW: Added screenshot verification functions to the import!
 const { 
   getTournaments, 
+  getTournamentById,
   createTournament, 
   joinTournament, 
   updateTournament, 
   declareWinner, 
   deleteTournament,
-  submitMatchResult,     // Player function
-  getPendingResults,     // Admin function
-  verifyMatchResult      // Admin function
+  submitMatchResult,     
+  getPendingResults,     
+  verifyMatchResult,     
+  getPendingJoinRequests,
+  verifyJoinRequest,
+  getRoomCredentials
 } = require('../controllers/tournamentController');
 
 const { protect, admin } = require('../middleware/auth');
 
 // ==========================================
-// 📸 SCREENSHOT VERIFICATION ROUTES
-// ==========================================
-// IMPORTANT: Placed above /:id routes to avoid routing conflicts
-
-// Admin fetches all pending screenshots
-router.get('/results/pending', protect, admin, getPendingResults);
-
-// Admin approves (Auto-Payout) or rejects a screenshot
-router.put('/results/:resultId/verify', protect, admin, verifyMatchResult);
-
-
-// ==========================================
 // 🎮 STANDARD TOURNAMENT ROUTES
 // ==========================================
-router.get('/', protect, getTournaments);
+router.get('/', getTournaments);
+router.get('/:id', getTournamentById);
+router.get('/:id/room-credentials', protect, getRoomCredentials);
+
+// 💰 UTR Verification Join
+router.post('/:id/join', protect, joinTournament); 
+
+// 📸 Player submits result
+router.post('/:id/submit-result', protect, submitMatchResult); 
+
+// ==========================================
+// 🛡️ ADMIN VERIFICATION ROUTES (Join Requests)
+// ==========================================
+// IMPORTANT: Place these before /:id generic routes if there's overlap, but here they are prefixed with /admin
+router.get('/admin/join-requests', protect, admin, getPendingJoinRequests);
+router.post('/admin/join-requests/:requestId/verify', protect, admin, verifyJoinRequest);
+
+// ==========================================
+// 🛡️ ADMIN VERIFICATION ROUTES (Match Results)
+// ==========================================
+router.get('/admin/pending-results', protect, admin, getPendingResults);
+router.post('/admin/verify-result/:resultId', protect, admin, verifyMatchResult);
+
+// ==========================================
+// 🛡️ ADMIN CORE MATCH MANAGEMENT
+// ==========================================
 router.post('/', protect, admin, createTournament);
-
-
-// ==========================================
-// ⚔️ TOURNAMENT SPECIFIC ACTIONS (/:id)
-// ==========================================
-router.post('/:id/join', protect, joinTournament);
-
-// 🚀 NEW: Player submits their match result screenshot
-router.post('/:id/submit-result', protect, submitMatchResult);
-
 router.put('/:id', protect, admin, updateTournament);
-router.post('/:id/winner', protect, admin, declareWinner);
+router.post('/:id/declare-winner', protect, admin, declareWinner);
 router.delete('/:id', protect, admin, deleteTournament);
 
 module.exports = router;

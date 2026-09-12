@@ -34,24 +34,23 @@ export type TournamentStatus = "upcoming" | "live" | "completed" | "cancelled";
 export type MapType = "Bermuda" | "Kalahari" | "Purgatory" | "Alpine";
 
 export interface Tournament {
-  _id: string;
-  name: string;
-  type: TournamentType;
-  map: MapType;
+  id: string;
+  title: string;
+  description?: string;
+  gameName: string;
+  map: string;
+  teamMode: string;
+  minLevel: number;
   entryFee: number;
   prizePool: number;
-  startTime: string;
-  slots: number;
-  filledSlots: number;
-  isFull: boolean;
-  status: TournamentStatus;
-  roomId: string;
-  roomPass: string;
-  roomReleasedAt: string | null;
-  prizes: Prize[];
-  participants: Participant[];
-  perKill: number;
-  createdAt: string;
+  maxParticipants: number;
+  currentParticipants: number;
+  status: string;
+  scheduledAt: string;
+  roomId?: string;
+  roomPassword?: string;
+  participants?: any[];
+  isPendingVerification?: boolean;
 }
 
 // ==================== PAYMENT ====================

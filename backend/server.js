@@ -9,8 +9,10 @@ const { Server } = require('socket.io');
 
 const authRoutes = require('./routes/authRoutes');
 const tournamentRoutes = require('./routes/tournamentRoutes');
-const walletRoutes = require('./routes/walletRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const walletRoutes = require('./routes/walletRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+const webhookRoutes = require('./routes/webhookRoutes');
 const userRoutes = require('./routes/userRoutes'); 
 
 const app = express();
@@ -93,6 +95,8 @@ const tournamentLimiter = rateLimit({
 app.use('/api/tournaments', tournamentLimiter, tournamentRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/webhooks', webhookRoutes);
 app.use('/api/users', userRoutes); 
 
 // ==========================================
