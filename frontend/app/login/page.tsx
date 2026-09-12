@@ -275,10 +275,15 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-[#11141D] border border-gray-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-[#b026ff] blur-[10px]"></div>
         <div className="flex flex-col items-center mb-8">
-          <div className="bg-[#b026ff]/10 p-4 rounded-2xl mb-4 border border-[#b026ff]/30">
-            <Gamepad2 className="text-[#b026ff]" size={40} />
+          <div className="flex justify-center mb-6">
+            <div className="p-4 bg-gradient-to-br from-[#1A1D24] to-[#0A0C10] rounded-2xl border border-gray-800 shadow-[0_0_30px_rgba(0,240,255,0.1)] overflow-hidden">
+              <img src="/icons/logo.jpg" alt="VPS EsportsHub Logo" className="h-16 w-16 object-cover rounded-xl" />
+            </div>
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-widest uppercase">VPS EsportsHub</h1>
+          
+          <h1 className="text-3xl font-black text-center mb-2 tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#00F0FF] to-white">
+            VPS ESPORTSHUB
+          </h1>
           <p className="text-gray-500 text-sm mt-1">{isLogin ? 'Welcome back, Champion' : 'Create your gaming legacy'}</p>
         </div>
 

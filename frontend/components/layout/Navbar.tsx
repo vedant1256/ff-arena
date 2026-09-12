@@ -47,7 +47,7 @@ export default function Navbar() {
           
           {/* 🎮 Logo Section */}
           <Link href="/dashboard" className="flex items-center gap-2">
-            <Gamepad2 className="text-purple-500 hidden sm:block" size={24} />
+            <img src="/icons/logo.jpg" alt="VPS EsportsHub Logo" className="h-8 w-8 rounded-full border border-[#00F0FF]/30 object-cover hidden sm:block" />
             <span className="text-base sm:text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-[#00F0FF] to-purple-500 tracking-wider uppercase">
               VPS EsportsHub
             </span>

@@ -12,6 +12,20 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'VPS-ESPORTSHUB | Premium Esports Tournaments',
   description: 'Join custom rooms, compete in tournaments, and build your gaming profile.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'VPS EsportsHub',
+  },
+};
+
+export const viewport = {
+  themeColor: '#000000',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
