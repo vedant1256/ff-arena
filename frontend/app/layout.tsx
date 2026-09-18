@@ -12,6 +12,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'VPS-ESPORTSHUB | Premium Esports Tournaments',
   description: 'Join custom rooms, compete in tournaments, and build your gaming profile.',
+  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -34,9 +35,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <link rel="manifest" href="/manifest.json" />
-      </head>
       <body className="min-h-screen flex flex-col antialiased selection:bg-[#00F0FF] selection:text-black bg-[#07070F]">
         {/* Wrap the app in the Google Auth Provider */}
         <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || 'dummy_client_id'}>
