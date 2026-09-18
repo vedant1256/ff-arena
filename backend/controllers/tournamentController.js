@@ -164,10 +164,12 @@ const getRoomCredentials = async (req, res) => {
 // 3. Create a Tournament
 const createTournament = async (req, res) => {
   try {
+    // 🛡️ SECURITY PATCH: Whitelist only allowed fields to prevent mass assignment
+    const { title, description, gameName, map, teamMode, minLevel, entryFee, prizePool, maxParticipants, scheduledAt } = req.body;
     const tournament = await prisma.tournament.create({
-      data: req.body
+      data: { title, description, gameName, map, teamMode, minLevel, entryFee, prizePool, maxParticipants, scheduledAt: new Date(scheduledAt) }
     });
-    if(req.io) req.io.emit('tournamentCreated', tournament);
+    if(req.io) req.io.emit('tournamentCreated', { id: tournament.id, title: tournament.title });
     res.status(201).json(tournament);
   } catch (error) {
     console.error("Create Tournament Error:", error);
@@ -232,8 +234,9 @@ const updateTournament = async (req, res) => {
       data: { status, roomId, roomPassword }
     });
 
+    // 🛡️ SECURITY PATCH: Only emit notification, no credentials over socket
     if (isRoomReleased && req.io) {
-      req.io.emit('roomDataReleased', { tournamentId: tournament.id });
+      req.io.emit('roomDataReleased', { tournamentId: tournament.id, title: tournament.title });
     }
 
     res.status(200).json({ message: 'Tournament updated successfully!', tournament });

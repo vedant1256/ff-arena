@@ -13,13 +13,13 @@ const updateTournament = async (req, res) => {
             data: { roomId, roomPassword, status }
         });
 
-        // LIVE BROADCAST: If room details are added, send them to all connected players instantly
+        // 🛡️ SECURITY PATCH: NEVER broadcast credentials over sockets.
+        // Only emit a notification. Clients must call the secured /room-credentials endpoint.
         if (roomId && roomPassword) {
             req.io.emit('roomDataReleased', {
                 tournamentId: updatedTournament.id,
-                title: updatedTournament.title,
-                roomId: updatedTournament.roomId,
-                roomPassword: updatedTournament.roomPassword
+                title: updatedTournament.title
+                // roomId and roomPassword intentionally EXCLUDED
             });
         }
 
@@ -125,17 +125,20 @@ const processWithdrawal = async (req, res) => {
             });
             return res.status(200).json({ message: 'Withdrawal approved successfully!' });
         } else if (action === 'REJECT') {
-            // Refund to winning balance
-            await prisma.$transaction([
-                prisma.transaction.update({
-                    where: { id: transactionId },
+            // 🛡️ SECURITY PATCH: Atomic conditional lock prevents double-refund
+            const result = await prisma.$transaction(async (tx) => {
+                const updated = await tx.transaction.updateMany({
+                    where: { id: transactionId, status: 'PENDING' },
                     data: { status: 'FAILED' }
-                }),
-                prisma.user.update({
+                });
+                if (updated.count === 0) {
+                    throw new Error('Already processed');
+                }
+                await tx.user.update({
                     where: { id: transaction.userId },
                     data: { winningBalance: { increment: transaction.amount } }
-                })
-            ]);
+                });
+            });
             return res.status(200).json({ message: 'Withdrawal rejected and amount refunded.' });
         } else {
             return res.status(400).json({ error: 'Invalid action. Must be APPROVE or REJECT.' });

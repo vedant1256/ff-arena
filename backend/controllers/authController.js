@@ -173,8 +173,9 @@ const googleLogin = async (req, res) => {
       token: generateToken(user.id),
     });
   } catch (error) {
+    // 🛡️ SECURITY PATCH: Never leak internal error details to the client
     console.error("Detailed Google Login Error:", error.message || error);
-    res.status(500).json({ error: `Server error: ${error.message}` });
+    res.status(500).json({ error: 'Google login failed. Please try again later.' });
   }
 };
 
@@ -229,8 +230,8 @@ const getLeaderboard = async (req, res) => {
       select: {
         id: true,
         username: true,
-        paidMatchesCount: true,
-        winningBalance: true // Show off how much they've won to motivate others
+        paidMatchesCount: true
+        // 🛡️ SECURITY PATCH: winningBalance removed — financial data is private
       }
     });
     

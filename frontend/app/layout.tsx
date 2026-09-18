@@ -12,7 +12,6 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'VPS-ESPORTSHUB | Premium Esports Tournaments',
   description: 'Join custom rooms, compete in tournaments, and build your gaming profile.',
-  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',

@@ -1,5 +1,6 @@
 // backend/server.js
 require('dotenv').config();
+const jwt = require('jsonwebtoken');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet'); // 🛡️ NEW: Helmet for Header Security
@@ -21,6 +22,7 @@ const server = http.createServer(app);
 // 🚀 THE BULLETPROOF CORS ARRAY
 const allowedOrigins = [
   'http://localhost:3000',
+  'https://vps-esportshub.vercel.app',
   'https://vps-esportshub-dfd5.vercel.app'
 ];
 
@@ -107,18 +109,42 @@ app.use('/api/users', userRoutes);
 // ==========================================
 // 💬 REAL-TIME CHAT & SOCKET CONNECTIONS
 // ==========================================
-io.on('connection', (socket) => {
-  console.log('User connected to socket:', socket.id);
+// 🛡️ SECURITY PATCH: JWT-based Socket Authentication
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) {
+    return next(new Error('Authentication required'));
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.id;
+    next();
+  } catch (err) {
+    return next(new Error('Invalid token'));
+  }
+});
 
-  // 🚀 NAYA CHAT LISTENER: Jab koi message bheje, sabko broadcast kardo
+io.on('connection', (socket) => {
+  console.log('Authenticated user connected to socket:', socket.userId);
+
+  // 🛡️ SECURITY PATCH: Chat messages now carry authenticated userId
   socket.on('sendMessage', (messageData) => {
-    io.emit('receiveMessage', messageData); 
+    io.emit('receiveMessage', { ...messageData, userId: socket.userId }); 
   });
 
   socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
+    console.log('User disconnected:', socket.userId);
   });
 });
+
+// 🛡️ SECURITY PATCH: Startup guard — refuse to run without critical secrets
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not set. Server will not start.');
+  process.exit(1);
+}
+if (!process.env.SMS_WEBHOOK_SECRET) {
+  console.warn('⚠️ WARNING: SMS_WEBHOOK_SECRET is not set. Webhook endpoint will reject ALL requests.');
+}
 
 const PORT = process.env.PORT || 5000;
 
