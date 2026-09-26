@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '../../store/useAuthStore';
 import api from '../../lib/axios';
-import { Gamepad2, ShieldAlert, Loader2, CheckSquare, Square, X, MapPin } from 'lucide-react';
+import { ShieldAlert, Loader2, CheckSquare, Square, X, MapPin, Gamepad2 } from 'lucide-react';
 
 // 🛑 Razorpay Restricted States
 const RESTRICTED_STATES = [
@@ -81,7 +81,7 @@ export default function LoginPage() {
           window.location.replace('/dashboard');
         }
       } catch (err: any) {
-        setError(err.response?.data?.error || 'Authentication failed. Please try again.');
+        setError(err.response?.data?.error || 'Authentication failed. Please check your credentials.');
       } finally {
         setLoading(false);
       }
@@ -92,7 +92,7 @@ export default function LoginPage() {
         return;
       }
       if (RESTRICTED_STATES.includes(state)) {
-        setError("Cash tournaments are banned in your state. Registration not allowed.");
+        setError("Cash tournaments are restricted in your state. Registration not allowed.");
         return;
       }
       setPendingAction({ type: 'manual', payload: { username, email, password, state } });
@@ -125,7 +125,7 @@ export default function LoginPage() {
                 return;
               }
               if (RESTRICTED_STATES.includes(state)) {
-                setError("Cash tournaments are banned in your state. Registration not allowed.");
+                setError("Cash tournaments are restricted in your state. Registration not allowed.");
                 setGoogleLoading(false);
                 return;
               }
@@ -154,7 +154,7 @@ export default function LoginPage() {
             }
           }
         },
-        error_callback: (err: any) => {
+        error_callback: () => {
           setError('Google Login window was closed or failed to connect.');
           setGoogleLoading(false);
         }
@@ -196,7 +196,7 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Registration failed. Please try again.');
-      setShowTermsModal(false); // Hide modal on error so they can see the error
+      setShowTermsModal(false);
     } finally {
       setLoading(false);
     }
@@ -207,63 +207,94 @@ export default function LoginPage() {
     setPendingAction(null);
   };
 
+  
   return (
-    <div className="min-h-screen bg-[#090B10] flex items-center justify-center p-4 relative">
+    <div className="min-h-screen bg-brand-bgLight text-brand-textPrimary font-sans flex items-center justify-center p-4 relative overflow-hidden">
       
-      {/* 🚀 THE TERMS MODAL (Hidden by default, pops up after clicking Initialize/Google) */}
+      {/* Decorative ambient gradients */}
+      <div className="absolute -top-24 -left-24 w-96 h-96 bg-indigo-200/40 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-teal-200/30 rounded-full blur-3xl pointer-events-none"></div>
+
+      {/* 🚀 THE TERMS MODAL */}
       {showTermsModal && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className="bg-[#11141D] border border-[#b026ff]/50 rounded-3xl w-full max-w-2xl flex flex-col shadow-[0_0_50px_rgba(176,38,255,0.2)] overflow-hidden animate-in zoom-in-95 duration-300 relative z-[1000]">
-            <div className="flex items-center justify-between p-6 border-b border-gray-800 bg-[#0A0C10]">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="bg-white border border-brand-borderLight rounded-3xl w-full max-w-2xl flex flex-col shadow-card-hover overflow-hidden animate-in zoom-in-95 duration-300 relative z-[1000]">
+            <div className="flex items-center justify-between p-5 sm:p-6 border-b border-brand-borderLight bg-slate-50">
               <div className="flex items-center gap-3">
-                <Gamepad2 className="text-[#b026ff]" size={28} />
-                <h1 className="text-xl font-extrabold text-white tracking-widest uppercase">Arena Rules</h1>
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-brand-indigo">
+                  <Gamepad2 size={20} />
+                </div>
+                <h2 className="text-lg font-extrabold text-slate-900 tracking-wider uppercase font-gaming">
+                  Arena Rules & Agreement
+                </h2>
               </div>
-              <button onClick={handleDecline} className="text-gray-500 hover:text-white transition">
-                <X size={24} />
+              <button onClick={handleDecline} className="text-slate-400 hover:text-slate-600 transition-colors p-1">
+                <X size={22} />
               </button>
             </div>
             
-            <div className="p-6 md:p-8 overflow-y-auto max-h-[50vh] custom-scrollbar text-sm text-gray-300 space-y-6 bg-[#11141D]">
-              <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-xl flex gap-3">
-                <ShieldAlert className="text-red-500 flex-shrink-0" size={24} />
+            <div className="p-6 overflow-y-auto max-h-[50vh] no-scrollbar text-sm text-slate-600 space-y-4">
+              <div className="bg-red-50 border border-red-200 p-4 rounded-xl flex gap-3">
+                <ShieldAlert className="text-brand-coral flex-shrink-0" size={24} />
                 <div>
-                  <h3 className="text-red-500 font-bold uppercase tracking-wider mb-1">Final Step Required</h3>
-                  <p className="text-red-400/80 text-xs">To finalize your account creation, you must legally agree to our platform rules.</p>
+                  <h3 className="text-brand-coral font-bold uppercase tracking-wider text-xs mb-0.5">Final Step Required</h3>
+                  <p className="text-slate-600 text-xs">To finalize your account creation, you must legally agree to our platform rules.</p>
                 </div>
               </div>
+
               <div>
-                <h3 className="font-bold text-white mb-2 text-base">1. Eligibility & Verification</h3>
-                <ul className="list-disc pl-5 space-y-1 text-gray-400">
+                <h4 className="font-bold text-slate-900 mb-1.5 text-sm">1. Eligibility & Verification</h4>
+                <ul className="list-disc pl-5 space-y-1 text-slate-500 text-xs">
                   <li>You must be at least 18 years of age.</li>
                   <li>Your Free Fire Game UID must perfectly match the UID on your Profile. Playing with an unregistered ID forfeits winnings.</li>
                 </ul>
               </div>
+
               <div>
-                <h3 className="font-bold text-red-400 mb-2 text-base">2. Strict Anti-Cheat Policy</h3>
-                <ul className="list-disc pl-5 space-y-1 text-gray-400">
-                  <li><strong>No Emulators:</strong> Mobile players only. PC use triggers an automatic ban.</li>
-                  <li><strong>Zero Tolerance on Hacks:</strong> Scripts, aimbots, or glitches result in a permanent hardware & IP ban.</li>
-                  <li><strong>No Teaming:</strong> Teaming in Solo modes is strictly forbidden.</li>
+                <h4 className="font-bold text-brand-coral mb-1.5 text-sm">2. Strict Anti-Cheat Policy</h4>
+                <ul className="list-disc pl-5 space-y-1 text-slate-500 text-xs">
+                  <li><strong>Mobile Only:</strong> No emulators or PC allowed. Detected emulators face automatic disqualification.</li>
+                  <li><strong>Zero Tolerance on Hacks:</strong> Scripts, aimbots, or glitches result in a permanent ban.</li>
+                  <li><strong>No Teaming:</strong> Teaming in Solo modes is strictly prohibited.</li>
                 </ul>
               </div>
             </div>
 
-            <div className="p-6 bg-[#0A0C10] border-t border-gray-800">
-              <button type="button" onClick={() => setTermsChecked(!termsChecked)} className="flex items-start gap-3 w-full text-left group mb-6">
+            <div className="p-5 sm:p-6 bg-slate-50 border-t border-brand-borderLight">
+              <button 
+                type="button" 
+                onClick={() => setTermsChecked(!termsChecked)} 
+                className="flex items-start gap-3 w-full text-left group mb-5"
+              >
                 <div className="mt-0.5 flex-shrink-0">
-                  {termsChecked ? <CheckSquare size={22} className="text-[#00F0FF]" /> : <Square size={22} className="text-gray-600 group-hover:text-gray-400 transition" />}
+                  {termsChecked ? (
+                    <CheckSquare size={20} className="text-brand-indigo" />
+                  ) : (
+                    <Square size={20} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
+                  )}
                 </div>
-                <span className={`text-sm leading-relaxed transition ${termsChecked ? 'text-gray-200 font-medium' : 'text-gray-500'}`}>
+                <span className={`text-xs leading-relaxed transition-colors ${termsChecked ? 'text-slate-800 font-medium' : 'text-slate-500'}`}>
                   I have read, understood, and legally agree to abide by the VPS EsportsHub Rules, Anti-Cheat Guidelines, and Refund Policy.
                 </span>
               </button>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <button onClick={handleDecline} className="flex-1 py-4 rounded-xl font-bold text-gray-400 border border-gray-800 hover:bg-gray-800 hover:text-white transition uppercase tracking-wider">
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button 
+                  onClick={handleDecline} 
+                  className="flex-1 py-3 rounded-xl font-bold text-slate-600 border border-brand-borderLight hover:bg-slate-100 transition-colors uppercase tracking-wider text-xs"
+                >
                   Decline & Cancel
                 </button>
-                <button disabled={!termsChecked || loading} onClick={confirmTermsAndProceed} className={`flex-1 py-4 rounded-xl font-extrabold uppercase tracking-widest transition-all flex justify-center items-center gap-2 ${termsChecked ? 'bg-[#b026ff] hover:bg-[#901ecc] text-white shadow-[0_0_20px_rgba(176,38,255,0.4)] active:scale-95' : 'bg-gray-800 text-gray-600 cursor-not-allowed'}`}>
-                  {loading ? <Loader2 className="animate-spin" size={20} /> : 'Accept & Create'}
+                <button 
+                  disabled={!termsChecked || loading} 
+                  onClick={confirmTermsAndProceed} 
+                  className={`flex-1 py-3 rounded-xl font-gaming font-extrabold uppercase tracking-widest text-xs transition-all flex justify-center items-center gap-2 ${
+                    termsChecked 
+                      ? 'bg-gradient-to-r from-brand-indigo to-brand-violet hover:from-brand-violet hover:to-brand-indigo text-white shadow-glow-primary active:scale-[0.98]' 
+                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  }`}
+                >
+                  {loading ? <Loader2 className="animate-spin" size={16} /> : 'Accept & Create Account'}
                 </button>
               </div>
             </div>
@@ -271,46 +302,96 @@ export default function LoginPage() {
         </div>
       )}
 
-      {/* 🚀 THE MAIN FORM (Always visible first!) */}
-      <div className="w-full max-w-md bg-[#11141D] border border-gray-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-[#b026ff] blur-[10px]"></div>
-        <div className="flex flex-col items-center mb-8">
-          <div className="flex justify-center mb-6">
-            <div className="p-4 bg-gradient-to-br from-[#1A1D24] to-[#0A0C10] rounded-2xl border border-gray-800 shadow-[0_0_30px_rgba(0,240,255,0.1)] overflow-hidden">
-              <img src="/icons/logo.jpg" alt="VPS EsportsHub Logo" className="h-16 w-16 object-cover rounded-xl" />
+      {/* 🚀 THE MAIN LOGIN/SIGNUP CARD */}
+      <div className="w-full max-w-md bg-white border border-brand-borderLight rounded-3xl p-6 sm:p-8 shadow-card-hover relative z-10 overflow-hidden">
+        
+        {/* Top Gradient Stripe */}
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-brand-indigo via-brand-violet to-brand-teal"></div>
+
+        {/* Brand Crest & Title */}
+        <div className="flex flex-col items-center mb-6 pt-2">
+          <div className="relative flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-indigo via-brand-violet to-brand-teal p-[2px] shadow-sm mb-3">
+            <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center overflow-hidden">
+              <svg className="w-7 h-7 text-brand-indigo" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2L3 6v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V6l-9-4zm0 2.18l7 3.12v4.7c0 4.54-3.14 8.78-7 9.88-3.86-1.1-7-5.34-7-9.88V7.3l7-3.12zM11 7h2v6h-2V7zm0 8h2v2h-2v-2z" />
+              </svg>
             </div>
           </div>
           
-          <h1 className="text-3xl font-black text-center mb-2 tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#00F0FF] to-white">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-center tracking-wider font-gaming bg-gradient-to-r from-brand-indigo via-brand-violet to-brand-teal bg-clip-text text-transparent uppercase leading-none">
             VPS ESPORTSHUB
           </h1>
-          <p className="text-gray-500 text-sm mt-1">{isLogin ? 'Welcome back, Champion' : 'Create your gaming legacy'}</p>
+          <span className="text-[11px] text-brand-teal font-bold tracking-wider flex items-center gap-1 mt-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-mint animate-pulse"></span>
+            FREE FIRE ARENA
+          </span>
+          <p className="text-slate-500 text-xs mt-2 font-medium">
+            {isLogin ? 'Welcome back, Champion! ⚡' : 'Create your tournament legacy'}
+          </p>
         </div>
 
+        {/* Mode Switch Pills */}
+        <div className="flex bg-slate-100 p-1 rounded-xl mb-5">
+          <button
+            type="button"
+            onClick={() => { setIsLogin(true); setError(''); }}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              isLogin ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Log In
+          </button>
+          <button
+            type="button"
+            onClick={() => { setIsLogin(false); setError(''); }}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              !isLogin ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Sign Up
+          </button>
+        </div>
+
+        {/* Error Alert */}
         {error && !showTermsModal && (
-          <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-3 rounded-lg text-sm text-center mb-6 font-medium flex items-center justify-center gap-2">
+          <div className="bg-red-50 border border-red-200 text-brand-coral p-3 rounded-xl text-xs font-medium text-center mb-4 flex items-center justify-center gap-2">
             <ShieldAlert size={16} /> {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3.5">
           {!isLogin && (
             <>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Gamer Tag (Username)</label>
-                <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-[#0A0C10] border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-[#b026ff] outline-none transition" placeholder="e.g., HeadshotKing" />
+                <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                  Gamer Tag (Username)
+                </label>
+                <input 
+                  type="text" 
+                  required 
+                  value={username} 
+                  onChange={(e) => setUsername(e.target.value)} 
+                  className="w-full bg-slate-50 border border-brand-borderLight rounded-xl px-3.5 py-2.5 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20 outline-none transition text-xs sm:text-sm" 
+                  placeholder="e.g., HeadshotKing" 
+                />
               </div>
               
-              {/* 🚀 Geofencing: State Selection */}
+              {/* Geofencing: State Selection */}
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">State of Residence</label>
+                <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                  State of Residence
+                </label>
                 <div className="relative">
-                  <MapPin className={`absolute left-4 top-1/2 -translate-y-1/2 ${RESTRICTED_STATES.includes(state) ? 'text-red-500' : 'text-gray-500'}`} size={18} />
+                  <MapPin className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${RESTRICTED_STATES.includes(state) ? 'text-brand-coral' : 'text-slate-400'}`} size={16} />
                   <select 
                     required
                     value={state}
                     onChange={(e) => { setState(e.target.value); setError(''); }}
-                    className={`w-full bg-[#0A0C10] border rounded-xl py-3 pl-11 pr-4 outline-none transition appearance-none text-white ${RESTRICTED_STATES.includes(state) ? 'border-red-500 focus:border-red-500' : 'border-gray-800 focus:border-[#b026ff]'}`}
+                    className={`w-full bg-slate-50 border rounded-xl py-2.5 pl-10 pr-3.5 outline-none transition appearance-none text-slate-900 text-xs sm:text-sm ${
+                      RESTRICTED_STATES.includes(state) 
+                        ? 'border-brand-coral focus:border-brand-coral' 
+                        : 'border-brand-borderLight focus:bg-white focus:border-brand-indigo'
+                    }`}
                   >
                     <option value="">Select your State</option>
                     {INDIAN_STATES.map(s => (
@@ -319,68 +400,110 @@ export default function LoginPage() {
                   </select>
                 </div>
                 {RESTRICTED_STATES.includes(state) && (
-                  <p className="text-xs text-red-400 mt-2 font-semibold">
-                    Cash tournaments are banned in {state}.
+                  <p className="text-[11px] text-brand-coral mt-1 font-semibold">
+                    Cash tournaments are restricted in {state}.
                   </p>
                 )}
               </div>
 
-              {/* 🚀 Age Verification: Date of Birth */}
+              {/* Age Verification: Date of Birth */}
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Date of Birth</label>
+                <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                  Date of Birth
+                </label>
                 <input 
                   type="date" 
                   required 
                   value={dob} 
                   onChange={(e) => setDob(e.target.value)} 
-                  className={`w-full bg-[#0A0C10] border rounded-xl px-4 py-3 outline-none transition text-white ${dob && !isValidAge ? 'border-red-500 focus:border-red-500' : 'border-gray-800 focus:border-[#b026ff]'}`}
+                  className={`w-full bg-slate-50 border rounded-xl px-3.5 py-2.5 outline-none transition text-slate-900 text-xs sm:text-sm ${
+                    dob && !isValidAge 
+                      ? 'border-brand-coral focus:border-brand-coral' 
+                      : 'border-brand-borderLight focus:bg-white focus:border-brand-indigo'
+                  }`}
                   max={new Date().toISOString().split("T")[0]}
                 />
                 {dob && !isValidAge && (
-                  <p className="text-xs text-red-400 mt-2 font-semibold">
+                  <p className="text-[11px] text-brand-coral mt-1 font-semibold">
                     You must be at least 18 years old to register.
                   </p>
                 )}
               </div>
             </>
           )}
+
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Email Address</label>
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-[#0A0C10] border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-[#b026ff] outline-none transition" placeholder="name@example.com" />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Password</label>
-            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-[#0A0C10] border border-gray-800 rounded-xl px-4 py-3 text-white focus:border-[#b026ff] outline-none transition" placeholder="••••••••" />
+            <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+              Email Address
+            </label>
+            <input 
+              type="email" 
+              required 
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)} 
+              className="w-full bg-slate-50 border border-brand-borderLight rounded-xl px-3.5 py-2.5 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20 outline-none transition text-xs sm:text-sm" 
+              placeholder="name@example.com" 
+            />
           </div>
 
-          <button type="submit" disabled={loading || googleLoading || (!isLogin && !isValidAge) || RESTRICTED_STATES.includes(state)} className="w-full py-3.5 rounded-xl font-extrabold uppercase tracking-widest transition-all mt-6 flex justify-center items-center gap-2 bg-[#b026ff] hover:bg-[#901ecc] text-white active:scale-95 shadow-[0_0_20px_rgba(176,38,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed">
-            {loading && !showTermsModal ? <Loader2 className="animate-spin" size={20} /> : (isLogin ? 'Enter Arena' : 'Initialize Account')}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+              Password
+            </label>
+            <input 
+              type="password" 
+              required 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              className="w-full bg-slate-50 border border-brand-borderLight rounded-xl px-3.5 py-2.5 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo/20 outline-none transition text-xs sm:text-sm" 
+              placeholder="••••••••" 
+            />
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={loading || googleLoading || (!isLogin && !isValidAge) || RESTRICTED_STATES.includes(state)} 
+            className="w-full py-3 rounded-xl font-gaming font-bold uppercase tracking-wider text-xs sm:text-sm transition-all mt-4 flex justify-center items-center gap-2 bg-gradient-to-r from-brand-indigo to-brand-violet hover:from-brand-violet hover:to-brand-indigo text-white active:scale-[0.98] shadow-glow-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading && !showTermsModal ? (
+              <Loader2 className="animate-spin" size={18} />
+            ) : (
+              isLogin ? 'Enter Arena' : 'Initialize Account'
+            )}
           </button>
         </form>
 
-        <div className="relative flex items-center py-6">
-          <div className="flex-grow border-t border-gray-800"></div>
-          <span className="flex-shrink-0 mx-4 text-gray-600 text-xs font-bold uppercase tracking-wider">Or</span>
-          <div className="flex-grow border-t border-gray-800"></div>
+        <div className="relative flex items-center py-4">
+          <div className="flex-grow border-t border-brand-borderLight"></div>
+          <span className="flex-shrink-0 mx-3 text-slate-400 text-[10px] font-bold uppercase tracking-wider">Or</span>
+          <div className="flex-grow border-t border-brand-borderLight"></div>
         </div>
 
-        <button type="button" disabled={loading || googleLoading || (!isLogin && !isValidAge) || RESTRICTED_STATES.includes(state)} onClick={handleGoogleLogin} className="w-full flex justify-center items-center gap-3 bg-white hover:bg-gray-200 text-black font-extrabold py-3.5 rounded-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
-          {googleLoading ? <Loader2 className="animate-spin text-black" size={20} /> : <GoogleIcon />}
+        <button 
+          type="button" 
+          disabled={loading || googleLoading || (!isLogin && !isValidAge) || RESTRICTED_STATES.includes(state)} 
+          onClick={handleGoogleLogin} 
+          className="w-full flex justify-center items-center gap-2.5 bg-white hover:bg-slate-50 border border-brand-borderLight text-slate-700 font-bold py-2.5 rounded-xl transition-all shadow-card-subtle active:scale-[0.98] text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {googleLoading ? <Loader2 className="animate-spin text-slate-700" size={18} /> : <GoogleIcon />}
           {googleLoading ? 'Connecting...' : 'Continue with Google'}
         </button>
 
-        <div className="mt-8 text-center border-t border-gray-800/50 pt-6">
-          <p className="text-sm text-gray-500">
+        
+        <div className="mt-5 text-center border-t border-brand-borderLight pt-4">
+          <p className="text-xs text-slate-500">
             {isLogin ? "Don't have an account?" : "Already have an account?"}
             <button 
               onClick={() => { setIsLogin(!isLogin); setError(''); }} 
-              className="ml-2 text-[#00F0FF] font-bold hover:underline"
+              className="ml-1.5 text-brand-indigo font-bold hover:underline"
             >
               {isLogin ? 'Sign Up' : 'Log In'}
             </button>
           </p>
         </div>
+
       </div>
+
     </div>
   );
 }

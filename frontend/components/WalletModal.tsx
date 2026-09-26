@@ -17,7 +17,7 @@ interface Transaction {
 interface WalletModalProps {
   isOpen: boolean;
   onClose: () => void;
-  balance: number; // This is the total balance passed from the parent
+  balance: number;
   transactions: Transaction[];
   onPaymentSuccess: () => void;
 }
@@ -46,10 +46,9 @@ export default function WalletModal({ isOpen, onClose, balance, transactions, on
   const [upiId, setUpiId] = useState('');
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   
-  // State to hold our Triple Wallet breakdown
+  // Detailed Balances
   const [detailedBalances, setDetailedBalances] = useState({ deposit: 0, winning: 0, bonus: 0 });
 
-  // Fetch the detailed breakdown every time the modal opens or a transaction happens
   useEffect(() => {
     if (isOpen) {
       api.get('/wallet').then((res) => {
@@ -82,7 +81,6 @@ export default function WalletModal({ isOpen, onClose, balance, transactions, on
         return;
       }
 
-      // 🚀 UPDATED: Calls the correct backend endpoint
       const { data } = await api.post('/wallet/create-order', { amount: Number(amount) });
       
       const isLoaded = await loadRazorpayScript();
@@ -92,7 +90,6 @@ export default function WalletModal({ isOpen, onClose, balance, transactions, on
         return;
       }
 
-      // 🚀 UPDATED: Directly using 'data' as it returns the order object
       const options = {
         key: razorpayKey, 
         amount: data.amount,
@@ -100,7 +97,7 @@ export default function WalletModal({ isOpen, onClose, balance, transactions, on
         name: 'VPS EsportsHub',
         description: 'Wallet Deposit',
         order_id: data.id,
-        theme: { color: '#00F0FF' },
+        theme: { color: '#6366F1' },
         handler: async function (response: any) {
           try {
             setLoading(true);
@@ -111,7 +108,7 @@ export default function WalletModal({ isOpen, onClose, balance, transactions, on
             });
             
             setAmount('');
-            onPaymentSuccess(); // Triggers a re-fetch of balances on the parent component
+            onPaymentSuccess();
           } catch (err: any) {
             alert(err.response?.data?.error || 'Payment verification failed. Contact support.');
           } finally {
@@ -154,10 +151,10 @@ export default function WalletModal({ isOpen, onClose, balance, transactions, on
     setWithdrawLoading(true);
     try {
       await api.post('/wallet/withdraw', { amount: Number(withdrawAmount), upiId });
-      alert("Withdrawal request sent to Admin! It will be processed to your UPI within 24 hours.");
+      alert("Withdrawal request sent! It will be processed to your UPI within 24 hours.");
       setWithdrawAmount('');
       setUpiId('');
-      onPaymentSuccess(); // Triggers a re-fetch of balances on the parent component
+      onPaymentSuccess();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to submit withdrawal request.');
     } finally {
@@ -166,161 +163,159 @@ export default function WalletModal({ isOpen, onClose, balance, transactions, on
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-[#11141D] border border-gray-800 rounded-2xl w-full max-w-lg shadow-[0_0_50px_rgba(0,240,255,0.1)] flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white border border-brand-borderLight rounded-3xl w-full max-w-lg shadow-card-hover flex flex-col max-h-[90vh] overflow-hidden">
         
         {/* Header */}
-        <div className="flex justify-between items-center p-5 border-b border-gray-800 bg-[#0A0C10] rounded-t-2xl">
-          <h2 className="text-xl font-bold text-white uppercase tracking-wider flex items-center gap-2">
-            <span className="text-[#00F0FF]">Triple</span> Wallet
+        <div className="flex justify-between items-center p-5 border-b border-brand-borderLight bg-slate-50">
+          <h2 className="text-base sm:text-lg font-extrabold text-slate-900 uppercase tracking-wider font-gaming flex items-center gap-2">
+            <span className="text-brand-indigo">Triple</span> Wallet
           </h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-white transition p-1 bg-gray-800/50 rounded-md">
-            <X size={20} />
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition p-1 bg-slate-100 rounded-lg">
+            <X size={18} />
           </button>
         </div>
 
-        {/* 💰 TRIPLE WALLET DISPLAY */}
-        <div className="p-6 bg-gradient-to-b from-[#0A0C10] to-[#11141D] border-b border-gray-800 flex flex-col items-center justify-center">
-          <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-2">Total Combined Balance</p>
-          <div className="flex items-center gap-2 text-4xl font-extrabold text-white mb-6">
-            <IndianRupee size={32} className="text-[#00F0FF]" />
-            {balance.toFixed(2)}
+        {/* Triple Wallet Display */}
+        <div className="p-5 bg-gradient-to-b from-slate-50 to-white border-b border-brand-borderLight flex flex-col items-center justify-center">
+          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Total Combined Balance</p>
+          <div className="flex items-center gap-1.5 text-3xl sm:text-4xl font-black text-slate-900 font-gaming mb-4">
+            <span className="text-brand-indigo">₹</span>
+            {balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
 
-          <div className="grid grid-cols-3 gap-3 w-full">
+          <div className="grid grid-cols-3 gap-2.5 w-full">
             {/* 1. Deposit Box */}
-            <div className="bg-[#0A0C10] border border-cyan-900/50 rounded-xl p-3 flex flex-col items-center text-center">
-              <Wallet size={18} className="text-cyan-400 mb-1" />
-              <p className="text-[10px] text-gray-500 uppercase font-bold">Deposit</p>
-              <p className="text-sm font-bold text-white">₹{detailedBalances.deposit.toFixed(0)}</p>
-              <p className="text-[8px] text-cyan-500/70 uppercase tracking-widest mt-1">Play Only</p>
+            <div className="bg-slate-50 border border-brand-borderLight rounded-xl p-2.5 flex flex-col items-center text-center shadow-card-subtle">
+              <Wallet size={16} className="text-brand-indigo mb-1" />
+              <p className="text-[9px] text-slate-400 uppercase font-bold">Deposit</p>
+              <p className="text-sm font-black text-slate-900 font-gaming">₹{detailedBalances.deposit.toFixed(0)}</p>
+              <p className="text-[8px] text-brand-indigo/80 uppercase tracking-widest mt-0.5 font-semibold">Play Only</p>
             </div>
             
             {/* 2. Winnings Box */}
-            <div className="bg-[#0A0C10] border border-green-900/50 rounded-xl p-3 flex flex-col items-center text-center relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-8 h-8 bg-green-500/10 rounded-bl-full"></div>
-              <Trophy size={18} className="text-green-400 mb-1" />
-              <p className="text-[10px] text-gray-500 uppercase font-bold">Winnings</p>
-              <p className="text-sm font-bold text-white">₹{detailedBalances.winning.toFixed(0)}</p>
-              <p className="text-[8px] text-green-400 uppercase tracking-widest mt-1 font-bold">100% Withdrawable</p>
+            <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-2.5 flex flex-col items-center text-center shadow-card-subtle relative overflow-hidden">
+              <Trophy size={16} className="text-emerald-600 mb-1" />
+              <p className="text-[9px] text-emerald-700 uppercase font-bold">Winnings</p>
+              <p className="text-sm font-black text-emerald-600 font-gaming">₹{detailedBalances.winning.toFixed(0)}</p>
+              <p className="text-[8px] text-emerald-700 uppercase tracking-widest mt-0.5 font-bold">100% Payout</p>
             </div>
 
             {/* 3. Bonus Box */}
-            <div className="bg-[#0A0C10] border border-purple-900/50 rounded-xl p-3 flex flex-col items-center text-center relative group">
-              <Gift size={18} className="text-[#b026ff] mb-1" />
-              <p className="text-[10px] text-gray-500 uppercase font-bold">Bonus</p>
-              <p className="text-sm font-bold text-white">₹{detailedBalances.bonus.toFixed(0)}</p>
-              <p className="text-[8px] text-purple-400/70 uppercase tracking-widest mt-1">Promo Use</p>
+            <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl p-2.5 flex flex-col items-center text-center shadow-card-subtle">
+              <Gift size={16} className="text-brand-violet mb-1" />
+              <p className="text-[9px] text-indigo-700 uppercase font-bold">Bonus</p>
+              <p className="text-sm font-black text-brand-violet font-gaming">₹{detailedBalances.bonus.toFixed(0)}</p>
+              <p className="text-[8px] text-indigo-600 uppercase tracking-widest mt-0.5 font-semibold">Promo Use</p>
             </div>
           </div>
         </div>
 
         {/* Action Area: Add Money & Withdraw */}
-        <div className="p-6 border-b border-gray-800 bg-[#0A0C10]">
-          {error && <div className="text-red-500 text-xs mb-3 bg-red-500/10 p-2 rounded border border-red-500/30">{error}</div>}
+        <div className="p-5 border-b border-brand-borderLight bg-white">
+          {error && <div className="text-brand-coral text-xs mb-3 bg-red-50 p-2 rounded-xl border border-red-200">{error}</div>}
           
           <div className="flex flex-col sm:flex-row gap-4">
-            {/* ADD FUNDS (Targets Deposit Wallet) */}
+            {/* ADD FUNDS */}
             <div className="flex-1">
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Add to Deposit Wallet</h3>
+              <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Add to Deposit Wallet</h3>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <IndianRupee size={14} className="text-gray-500" />
+                    <span className="text-slate-400 text-xs font-bold">₹</span>
                   </div>
                   <input 
                     type="number" 
                     value={amount}
                     onChange={(e) => setAmount(e.target.value ? Number(e.target.value) : '')}
                     placeholder="Min ₹10" 
-                    className="w-full bg-[#11141D] border border-gray-800 rounded-lg pl-8 pr-3 py-2.5 text-sm text-white focus:border-[#00F0FF] outline-none transition"
+                    className="w-full bg-slate-50 border border-brand-borderLight rounded-xl pl-7 pr-3 py-2 text-xs sm:text-sm text-slate-900 focus:bg-white focus:border-brand-indigo outline-none transition"
                   />
                 </div>
                 <button 
                   onClick={handleDeposit}
                   disabled={loading || !amount || amount < 10}
-                  className="bg-[#00F0FF] hover:bg-[#00c8ff] text-black font-extrabold px-4 rounded-lg text-sm transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="bg-brand-indigo hover:bg-brand-violet text-white font-gaming font-bold text-xs px-4 rounded-xl transition shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
                 >
-                  {loading ? <Loader2 size={16} className="animate-spin" /> : 'ADD'}
+                  {loading ? <Loader2 size={14} className="animate-spin" /> : 'ADD'}
                 </button>
               </div>
             </div>
 
-            {/* WITHDRAW (Targets Winning Wallet) */}
-            <div className="flex-1 flex flex-col border-t sm:border-t-0 sm:border-l border-gray-800 pt-4 sm:pt-0 sm:pl-4">
-               <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Withdraw Winnings</h3>
+            {/* WITHDRAW */}
+            <div className="flex-1 flex flex-col border-t sm:border-t-0 sm:border-l border-brand-borderLight pt-3 sm:pt-0 sm:pl-4">
+               <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Withdraw Winnings</h3>
                <div className="flex flex-col gap-2 mb-2">
                  <input 
                    type="text" 
                    value={upiId}
                    onChange={(e) => setUpiId(e.target.value)}
-                   placeholder="Your UPI ID (e.g. 9876543210@ybl)" 
-                   className="w-full bg-[#11141D] border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:border-green-500 outline-none transition"
+                   placeholder="UPI ID (e.g. 9876543210@ybl)" 
+                   className="w-full bg-slate-50 border border-brand-borderLight rounded-xl px-3 py-1.5 text-xs text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition"
                  />
                  <div className="relative">
                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                     <IndianRupee size={14} className="text-gray-500" />
+                     <span className="text-slate-400 text-xs font-bold">₹</span>
                    </div>
                    <input 
                      type="number" 
                      value={withdrawAmount}
                      onChange={(e) => setWithdrawAmount(e.target.value ? Number(e.target.value) : '')}
-                     placeholder="Amount (Min ₹100)" 
-                     className="w-full bg-[#11141D] border border-gray-800 rounded-lg pl-8 pr-3 py-2 text-sm text-white focus:border-green-500 outline-none transition"
+                     placeholder="Min ₹100" 
+                     className="w-full bg-slate-50 border border-brand-borderLight rounded-xl pl-7 pr-3 py-1.5 text-xs text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition"
                    />
                  </div>
                </div>
                <button 
                   onClick={handleWithdrawRequest}
                   disabled={withdrawLoading || !withdrawAmount || withdrawAmount < 100 || !upiId}
-                  className="w-full bg-green-500/10 hover:bg-green-500/20 border border-green-500/50 text-green-400 font-extrabold py-2 rounded-lg text-sm transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-gaming text-xs font-bold py-2 rounded-xl transition shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                 >
-                  {withdrawLoading ? <Loader2 size={16} className="animate-spin" /> : 'WITHDRAW MONEY'}
+                  {withdrawLoading ? <Loader2 size={14} className="animate-spin" /> : 'WITHDRAW MONEY'}
                 </button>
-                <p className="text-[9px] text-gray-500 text-center mt-2 leading-relaxed">
-                  Min. Withdrawal: ₹100 <br/>
-                  <span className="text-gray-400 font-semibold uppercase tracking-wider text-[8px]">Standard RMG KYC (PAN/Aadhar) may be required for processing payouts.</span>
+                <p className="text-[9px] text-slate-400 text-center mt-1">
+                  Min ₹100 • Processed to verified UPI
                 </p>
             </div>
           </div>
         </div>
 
         {/* Transaction History */}
-        <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
-          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Recent Transactions</h3>
+        <div className="p-5 overflow-y-auto no-scrollbar flex-1 bg-slate-50/50">
+          <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Recent Transactions</h3>
           
           {transactions.length === 0 ? (
-            <div className="text-center text-gray-600 text-sm py-8 flex flex-col items-center">
-              <Clock size={32} className="mb-2 opacity-20" />
+            <div className="text-center text-slate-400 text-xs py-6 flex flex-col items-center">
+              <Clock size={24} className="mb-1 text-slate-300" />
               No transaction history found.
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {transactions.map(tx => (
-                <div key={tx.id} className="flex items-center justify-between bg-[#0A0C10] p-3 rounded-xl border border-gray-800/60">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${
-                      tx.type === 'DEPOSIT' ? 'bg-cyan-500/10 text-cyan-500' :
-                      tx.type === 'CREDIT' ? 'bg-green-500/10 text-green-500' :
-                      'bg-red-500/10 text-red-500'
+                <div key={tx.id} className="flex items-center justify-between bg-white p-3 rounded-xl border border-brand-borderLight shadow-card-subtle">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-1.5 rounded-lg ${
+                      tx.type === 'DEPOSIT' ? 'bg-indigo-50 text-brand-indigo' :
+                      tx.type === 'CREDIT' ? 'bg-emerald-50 text-emerald-600' :
+                      'bg-red-50 text-brand-coral'
                     }`}>
-                      {tx.type === 'DEPOSIT' || tx.type === 'CREDIT' ? <ArrowUpRight size={16} /> : <ArrowUpRight size={16} className="rotate-90" />}
+                      <ArrowUpRight size={14} className={tx.type === 'DEPOSIT' || tx.type === 'CREDIT' ? '' : 'rotate-90'} />
                     </div>
                     <div>
-                      <p className="text-white text-sm font-bold truncate max-w-[150px] sm:max-w-[200px]">{tx.description || tx.type}</p>
-                      <p className="text-gray-500 text-[10px] uppercase tracking-wider">{new Date(tx.createdAt).toLocaleDateString()}</p>
+                      <p className="text-slate-800 text-xs font-bold truncate max-w-[150px]">{tx.description || tx.type}</p>
+                      <p className="text-slate-400 text-[9px] uppercase tracking-wider">{new Date(tx.createdAt).toLocaleDateString()}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className={`font-extrabold text-sm ${
-                      tx.type === 'DEPOSIT' ? 'text-cyan-400' : 
-                      tx.type === 'CREDIT' ? 'text-green-400' : 'text-red-400'
+                    <p className={`font-black text-xs font-gaming ${
+                      tx.type === 'DEPOSIT' ? 'text-brand-indigo' : 
+                      tx.type === 'CREDIT' ? 'text-emerald-600' : 'text-brand-coral'
                     }`}>
                       {tx.type === 'DEPOSIT' || tx.type === 'CREDIT' ? '+' : '-'}₹{tx.amount.toFixed(0)}
                     </p>
                     {tx.status === 'SUCCESS' && (
-                      <p className="text-green-500/70 text-[10px] font-bold uppercase flex items-center justify-end gap-1 mt-0.5">
-                        <CheckCircle2 size={10} /> Success
+                      <p className="text-emerald-600 text-[9px] font-bold uppercase flex items-center justify-end gap-0.5">
+                        <CheckCircle2 size={9} /> Success
                       </p>
                     )}
                   </div>

@@ -10,17 +10,22 @@ export default function RootPage() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token) {
+    // If they have a real token, send them to dashboard. Otherwise, send to login.
+    if (token && token !== 'demo-bypass-token') {
       router.replace('/dashboard');
     } else {
+      // Remove any accidental demo token left over
+      localStorage.removeItem('token');
       router.replace('/login');
     }
   }, [router]);
 
   return (
-    <div className="min-h-[85vh] flex flex-col items-center justify-center text-[#00F0FF]">
-      <Loader2 size={40} className="animate-spin mb-4" />
-      <p className="text-sm font-bold uppercase tracking-widest text-gray-400">Verifying Access...</p>
+    <div className="min-h-[70vh] flex flex-col items-center justify-center text-brand-indigo">
+      <Loader2 size={36} className="animate-spin mb-3 text-brand-indigo" />
+      <p className="text-xs font-bold uppercase tracking-widest text-slate-400 font-gaming">
+        Entering Arena...
+      </p>
     </div>
   );
 }

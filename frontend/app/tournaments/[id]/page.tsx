@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/axios';
 import { useAuthStore } from '@/store/useAuthStore';
-import { ShieldAlert, Users, Map, Loader2, ArrowLeft, Lock, Gamepad2, IndianRupee, Key, QrCode, CheckCircle2, X } from 'lucide-react';
+import { ShieldAlert, Users, Map, Loader2, ArrowLeft, Lock, Gamepad2, QrCode, CheckCircle2, X, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
@@ -20,11 +20,10 @@ export default function TournamentDetailsPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // 📸 QR Code Modal State
+  // QR Code Modal State
   const [showModal, setShowModal] = useState(false);
   const [paymentStep, setPaymentStep] = useState(1);
   const [utr, setUtr] = useState('');
-  const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
 
   // Room Credentials State
   const [credentials, setCredentials] = useState<{roomId: string, roomPassword: string} | null>(null);
@@ -60,7 +59,6 @@ export default function TournamentDetailsPage() {
   useEffect(() => {
     fetchTournament();
 
-    // 🚀 NEW: Real-time Push Notification for Room Credentials
     const socketURL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000';
     const socket = io(socketURL);
 
@@ -72,7 +70,6 @@ export default function TournamentDetailsPage() {
           icon: '🔥'
         });
         
-        // If the user already has credentials visible, or is eligible, re-fetch them
         const token = localStorage.getItem('token');
         if (token) fetchRoomCredentials();
       }
@@ -124,7 +121,7 @@ export default function TournamentDetailsPage() {
     }
     return () => {
       if (interval) clearInterval(interval);
-    }
+    };
   }, [paymentStep, params.id]);
 
   const submitUtr = async () => {
@@ -148,7 +145,6 @@ export default function TournamentDetailsPage() {
         await fetchTournament();
         setJoining(false);
       } else {
-        // Switch to waiting state
         setPaymentStep(3);
       }
     } catch (err: any) {
@@ -159,23 +155,25 @@ export default function TournamentDetailsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[85vh] flex flex-col justify-center items-center gap-4 text-[#00F0FF]">
-        <Loader2 size={40} className="animate-spin" />
-        <h2 className="text-xl font-bold tracking-widest uppercase">Initializing Arena...</h2>
+      <div className="min-h-[70vh] flex flex-col justify-center items-center gap-3 text-brand-indigo">
+        <Loader2 size={36} className="animate-spin" />
+        <h2 className="text-sm font-bold tracking-widest uppercase font-gaming text-slate-500">
+          Loading Arena Match...
+        </h2>
       </div>
     );
   }
 
   if (error && !tournament && !showModal) {
     return (
-      <div className="max-w-2xl mx-auto mt-20 text-center">
-        <div className="bg-red-500/10 border border-red-500/30 p-8 rounded-2xl">
-          <ShieldAlert size={48} className="text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-red-500 mb-2">Access Denied</h2>
-          <p className="text-gray-400 mb-6">{error}</p>
+      <div className="max-w-md mx-auto mt-12 text-center px-4">
+        <div className="bg-white border border-red-200 p-8 rounded-3xl shadow-card-hover">
+          <ShieldAlert size={40} className="text-brand-coral mx-auto mb-3" />
+          <h2 className="text-lg font-bold text-slate-900 mb-1">Match Not Found</h2>
+          <p className="text-slate-500 text-xs mb-5">{error}</p>
           <Link href="/dashboard">
-            <button className="bg-[#11141D] border border-gray-800 px-6 py-2 rounded-xl text-white hover:border-gray-600 transition">
-              Return to Dashboard
+            <button className="bg-brand-indigo hover:bg-brand-violet text-white font-gaming text-xs font-bold uppercase tracking-wider px-5 py-2.5 rounded-xl transition-all shadow-sm">
+              Back to Lobby
             </button>
           </Link>
         </div>
@@ -183,29 +181,31 @@ export default function TournamentDetailsPage() {
     );
   }
 
-  const isParticipant = tournament.participants?.some((p: any) => p.id === user?.id);
-  const isPending = tournament.isPendingVerification;
-  const percentage = Math.min(((tournament.currentParticipants || 0) / tournament.maxParticipants) * 100, 100);
-  const isFull = tournament.currentParticipants >= tournament.maxParticipants;
-  const isClosed = tournament.status !== 'REGISTRATION_OPEN';
+  const isParticipant = tournament?.participants?.some((p: any) => p.id === user?.id);
+  const isPending = tournament?.isPendingVerification;
+  const currentParticipants = tournament?.currentParticipants || 0;
+  const maxParticipants = tournament?.maxParticipants || 1;
+  const percentage = Math.min((currentParticipants / maxParticipants) * 100, 100);
+  const isFull = currentParticipants >= maxParticipants;
+  const isClosed = tournament?.status !== 'REGISTRATION_OPEN';
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 mt-6 pb-20 animate-in fade-in duration-500">
+    <div className="max-w-md md:max-w-4xl lg:max-w-5xl mx-auto px-4 pt-4 pb-20 space-y-4">
       
       {/* 💰 QR PAYMENT MODAL */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#0A0C10] border border-gray-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative">
-            <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white transition">
-              <X size={24} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white border border-brand-borderLight rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-card-hover relative">
+            <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition">
+              <X size={20} />
             </button>
 
             {paymentStep === 1 ? (
               <div className="text-center">
-                <h2 className="text-2xl font-black text-white uppercase tracking-wider mb-2">Complete Payment</h2>
-                <p className="text-sm text-gray-400 mb-6">Scan the QR code below using any UPI app to pay the entry fee.</p>
+                <h2 className="text-xl font-extrabold text-slate-900 uppercase tracking-wider font-gaming mb-1">Complete Payment</h2>
+                <p className="text-xs text-slate-500 mb-5">Scan the QR code below using Google Pay, PhonePe, or Paytm.</p>
                 
-                <div className="bg-white p-4 rounded-2xl mx-auto w-48 h-48 flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+                <div className="bg-slate-50 border border-brand-borderLight p-4 rounded-2xl mx-auto w-48 h-48 flex items-center justify-center mb-5 shadow-card-subtle">
                   {tournament.entryFee === 10 ? (
                     <img src="/qr-10.png" alt="₹10 QR Code" className="w-full h-full object-contain rounded-xl" />
                   ) : tournament.entryFee === 20 ? (
@@ -214,223 +214,222 @@ export default function TournamentDetailsPage() {
                     <img src="/qr-40.png" alt="₹40 QR Code" className="w-full h-full object-contain rounded-xl" />
                   ) : (
                     <div className="text-center">
-                      <QrCode size={64} className="text-gray-900 mx-auto mb-2" />
-                      <p className="text-[10px] font-bold text-red-600 uppercase">Contact Admin for QR</p>
+                      <QrCode size={56} className="text-slate-400 mx-auto mb-1" />
+                      <p className="text-[9px] font-bold text-slate-500 uppercase">UPI Verification QR</p>
                     </div>
                   )}
                 </div>
 
-                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-6">
-                  <p className="text-xs font-bold text-yellow-500 uppercase tracking-widest mb-1">Amount to Pay</p>
-                  <p className="text-3xl font-black text-yellow-500 flex items-center justify-center gap-1">
-                    <IndianRupee size={24}/> {tournament.entryFee}
+                <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-3 mb-5">
+                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-0.5">Amount to Pay</p>
+                  <p className="text-2xl font-black text-amber-600 font-gaming">
+                    ₹{tournament.entryFee}
                   </p>
                 </div>
 
                 <button 
                   onClick={() => setPaymentStep(2)}
-                  className="w-full py-4 rounded-xl font-black uppercase tracking-widest bg-gradient-to-r from-[#00F0FF] to-[#00b3ff] text-gray-900 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg hover:shadow-[0_0_20px_rgba(0,240,255,0.4)]"
+                  className="w-full py-3 rounded-xl font-gaming font-bold uppercase tracking-wider text-xs bg-gradient-to-r from-brand-indigo to-brand-violet hover:from-brand-violet hover:to-brand-indigo text-white shadow-glow-primary active:scale-[0.98] transition-all"
                 >
                   I Have Paid
                 </button>
               </div>
             ) : paymentStep === 2 ? (
               <div className="text-center">
-                <h2 className="text-2xl font-black text-[#00F0FF] uppercase tracking-wider mb-2">Verify Payment</h2>
-                <p className="text-sm text-gray-400 mb-8">Enter the 12-digit UTR or Transaction ID from your payment app.</p>
+                <h2 className="text-xl font-extrabold text-slate-900 uppercase tracking-wider font-gaming mb-1">Verify Payment</h2>
+                <p className="text-xs text-slate-500 mb-6">Enter the 12-digit UTR or Transaction ID from your payment app.</p>
                 
                 <input
                   type="text"
                   placeholder="e.g. 301234567890"
                   value={utr}
                   onChange={(e) => setUtr(e.target.value)}
-                  className="w-full bg-[#11141D] border border-gray-700 text-white text-center text-xl font-mono tracking-widest rounded-xl p-4 mb-6 focus:outline-none focus:border-[#00F0FF] transition-colors"
+                  className="w-full bg-slate-50 border border-brand-borderLight text-slate-900 text-center text-lg font-mono tracking-widest rounded-xl p-3 mb-4 focus:outline-none focus:border-brand-indigo transition-colors"
                 />
 
-                {error && <p className="text-red-500 text-xs font-bold mb-4">{error}</p>}
+                {error && <p className="text-brand-coral text-xs font-bold mb-4">{error}</p>}
 
-                <div className="flex gap-4">
+                <div className="flex gap-3">
                   <button 
                     onClick={() => setPaymentStep(1)}
-                    className="flex-1 py-4 rounded-xl font-bold uppercase tracking-widest bg-gray-800 text-gray-400 hover:bg-gray-700 transition-colors"
+                    className="flex-1 py-3 rounded-xl font-bold uppercase tracking-widest text-xs bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
                   >
                     Back
                   </button>
                   <button 
                     onClick={submitUtr}
                     disabled={joining}
-                    className="flex-[2] py-4 rounded-xl font-black uppercase tracking-widest bg-gradient-to-r from-[#b026ff] to-[#00F0FF] text-white hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg disabled:opacity-50"
+                    className="flex-[2] py-3 rounded-xl font-gaming font-bold uppercase tracking-wider text-xs bg-gradient-to-r from-brand-indigo to-brand-violet text-white shadow-glow-primary hover:from-brand-violet hover:to-brand-indigo active:scale-[0.98] transition-all disabled:opacity-50"
                   >
-                    {joining ? <Loader2 className="animate-spin mx-auto" size={20} /> : 'Submit UTR'}
+                    {joining ? <Loader2 className="animate-spin mx-auto" size={16} /> : 'Submit UTR'}
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="text-center">
-                <h2 className="text-2xl font-black text-yellow-500 uppercase tracking-wider mb-2 animate-pulse">Verifying...</h2>
-                <p className="text-sm text-gray-400 mb-8">Please wait while our system verifies your payment. This usually takes 1-2 minutes.</p>
-                <div className="flex justify-center mb-6">
-                  <Loader2 className="animate-spin text-yellow-500" size={48} />
+              <div className="text-center py-4">
+                <h2 className="text-xl font-extrabold text-amber-600 uppercase tracking-wider font-gaming mb-1">Verifying...</h2>
+                <p className="text-xs text-slate-500 mb-6">Please wait while our system auto-verifies your payment.</p>
+                <div className="flex justify-center mb-5">
+                  <Loader2 className="animate-spin text-amber-500" size={40} />
                 </div>
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Do not close this window</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Do not close this modal</p>
               </div>
             )}
           </div>
         </div>
       )}
 
-
-      <div className="flex items-center justify-between mb-6">
+      {/* Back Button */}
+      <div>
         <Link href="/dashboard">
-          <button className="flex items-center gap-2 text-gray-400 hover:text-white transition group bg-[#11141D] px-4 py-2 rounded-lg border border-gray-800 hover:border-gray-600">
-            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="font-bold uppercase tracking-wider text-xs">Back to Dashboard</span>
+          <button className="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 transition bg-white px-3.5 py-1.5 rounded-xl border border-brand-borderLight shadow-card-subtle text-xs font-bold font-gaming uppercase">
+            <ArrowLeft size={14} /> Back to Lobby
           </button>
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Details */}
-        <div className="lg:col-span-2 space-y-8">
-          <div className="bg-[#11141D] border border-gray-800 rounded-3xl p-8 sm:p-10 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#00F0FF]/5 rounded-bl-[100px] blur-3xl -z-0"></div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Main Details Card */}
+        <div className="md:col-span-2 space-y-4">
+          <div className="bg-white border border-brand-borderLight rounded-3xl p-5 sm:p-7 shadow-card-hover relative overflow-hidden">
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <span className="bg-indigo-50 text-brand-indigo text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider border border-indigo-200">
+                {tournament.gameName || 'FREE FIRE'}
+              </span>
+              <span className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full border flex items-center gap-1 ${
+                isClosed 
+                  ? 'bg-slate-100 text-slate-500 border-slate-200' 
+                  : 'bg-emerald-50 text-emerald-600 border-emerald-200'
+              }`}>
+                {!isClosed && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>}
+                {tournament.status.replace(/_/g, ' ')}
+              </span>
+            </div>
+            
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-gaming uppercase tracking-wide mb-3">
+              {tournament.title}
+            </h1>
+            
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 font-semibold mb-6">
+              <span className="flex items-center gap-1 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                <span>🗺️</span> {tournament.map || 'Bermuda'}
+              </span>
+              <span className="flex items-center gap-1 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                <span>👥</span> {tournament.teamMode || 'Solo'}
+              </span>
+              <span className="flex items-center gap-1 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                <ShieldAlert size={14} className="text-amber-500"/> Lvl {tournament.minLevel || 20}+
+              </span>
+            </div>
 
-            <div className="relative z-10">
-              <div className="flex flex-wrap items-center gap-3 mb-6">
-                <span className="bg-[#00F0FF]/10 text-[#00F0FF] text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest border border-[#00F0FF]/30 flex items-center gap-2">
-                  <Gamepad2 size={14} /> {tournament.gameName}
-                </span>
-                <span className={`text-[10px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-full border flex items-center gap-1 ${isClosed ? 'bg-red-500/10 text-red-500 border-red-500/30' : 'bg-green-500/10 text-green-400 border-green-500/30'}`}>
-                  {isClosed ? <Lock size={12}/> : <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse mr-1"></div>}
-                  {tournament.status.replace(/_/g, ' ')}
-                </span>
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <div className="bg-slate-50 border border-slate-200/80 p-3.5 rounded-2xl text-center">
+                <p className="text-[9px] text-slate-400 uppercase tracking-widest font-bold mb-0.5">ENTRY FEE</p>
+                <p className="text-amber-600 font-black text-2xl font-gaming">₹{tournament.entryFee}</p>
+                <p className="text-[9px] text-slate-400">Per Entry</p>
               </div>
-              
-              <h1 className="text-4xl sm:text-5xl font-black text-white mb-6 uppercase tracking-wider leading-tight">
-                {tournament.title}
-              </h1>
-              
-              <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400 font-bold uppercase tracking-wider mb-10">
-                <span className="flex items-center gap-2 bg-[#0A0C10] px-4 py-2.5 rounded-xl border border-gray-800">
-                  <Map size={16} className="text-[#00F0FF]"/> {tournament.map}
-                </span>
-                <span className="flex items-center gap-2 bg-[#0A0C10] px-4 py-2.5 rounded-xl border border-gray-800">
-                  <Users size={16} className="text-[#b026ff]"/> {tournament.teamMode}
-                </span>
-                <span className="flex items-center gap-2 bg-[#0A0C10] px-4 py-2.5 rounded-xl border border-gray-800">
-                  <ShieldAlert size={16} className="text-yellow-500"/> Lvl {tournament.minLevel}+
-                </span>
+              <div className="bg-emerald-50/70 border border-emerald-200/80 p-3.5 rounded-2xl text-center">
+                <p className="text-[9px] text-emerald-700 uppercase tracking-widest font-bold mb-0.5">PRIZE POOL</p>
+                <p className="text-emerald-600 font-black text-2xl font-gaming">₹{tournament.prizePool}</p>
+                <p className="text-[9px] text-emerald-600/80">Winner Takes 60%</p>
               </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-8">
-                <div className="bg-[#0A0C10] border border-gray-800 p-6 rounded-2xl text-center flex flex-col items-center justify-center">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-2">Entry Fee</p>
-                  <p className="text-yellow-500 font-black text-3xl flex items-center gap-1"><IndianRupee size={24}/> {tournament.entryFee}</p>
-                </div>
-                <div className="bg-[#0A0C10] border border-green-900/30 p-6 rounded-2xl text-center flex flex-col items-center justify-center relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-16 h-16 bg-green-500/10 rounded-bl-full"></div>
-                  <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-2">Prize Pool</p>
-                  <p className="text-green-400 font-black text-3xl flex items-center gap-1"><IndianRupee size={24}/> {tournament.prizePool}</p>
-                </div>
+            </div>
+            
+            <div>
+              <div className="flex justify-between text-[11px] font-semibold text-slate-600 mb-1.5">
+                <span>Slots Filled</span>
+                <span className="text-brand-indigo font-bold">{currentParticipants} / {maxParticipants}</span>
               </div>
-              
-              <div className="bg-[#0A0C10] p-5 rounded-2xl border border-gray-800">
-                <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
-                  <span>Slots Filled</span>
-                  <span className={isFull ? 'text-red-500 font-black' : 'text-[#00F0FF] font-black'}>
-                    {tournament.currentParticipants} / {tournament.maxParticipants}
-                  </span>
-                </div>
-                <div className="w-full h-2.5 bg-gray-900 rounded-full overflow-hidden shadow-inner">
-                  <div 
-                    className={`h-full transition-all duration-1000 ${isFull ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'bg-[#00F0FF] shadow-[0_0_10px_rgba(0,240,255,0.5)]'}`}
-                    style={{ width: `${percentage}%` }}
-                  ></div>
-                </div>
+              <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-brand-indigo to-brand-teal transition-all duration-500 rounded-full" 
+                  style={{ width: `${percentage}%` }}
+                ></div>
               </div>
             </div>
           </div>
           
-          <div className="bg-[#11141D] border border-red-500/20 rounded-3xl p-8 shadow-xl">
-            <h2 className="flex items-center gap-3 text-xl font-black text-red-500 uppercase tracking-widest mb-6">
-              <ShieldAlert size={24} /> Match Rules
-            </h2>
-            <ul className="space-y-4 text-sm text-gray-300 font-medium">
-              <li className="flex items-start gap-4">
-                <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 flex-shrink-0 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
-                <p>Strictly Mobile only. PC/Emulators will be permanently banned with zero refunds.</p>
+          {/* Rules info */}
+          <div className="bg-white border border-brand-borderLight rounded-3xl p-5 sm:p-6 shadow-card-subtle">
+            <h3 className="text-xs font-bold text-slate-900 uppercase font-gaming tracking-wide mb-3 flex items-center gap-1.5">
+              <ShieldAlert size={16} className="text-brand-coral" /> Match Rules & Fair Play
+            </h3>
+            <ul className="space-y-2 text-xs text-slate-600">
+              <li className="flex items-start gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-coral mt-1 flex-shrink-0"></span>
+                <span>Strictly Mobile only. PC/Emulators result in instant disqualification and forfeiture.</span>
               </li>
-              <li className="flex items-start gap-4">
-                <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 flex-shrink-0 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
-                <p>Your in-game Free Fire UID must match your profile perfectly for automated payouts.</p>
+              <li className="flex items-start gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-indigo mt-1 flex-shrink-0"></span>
+                <span>Your registered Free Fire UID must match your joined player name.</span>
               </li>
-              <li className="flex items-start gap-4">
-                <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 flex-shrink-0 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
-                <p>Room ID and Password will be displayed here for paid participants 15 minutes before start.</p>
+              <li className="flex items-start gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-indigo mt-1 flex-shrink-0"></span>
+                <span>Room ID and Password are disclosed 15 minutes before the match start time.</span>
               </li>
             </ul>
           </div>
         </div>
 
-        {/* Right Column: Actions */}
-        <div className="space-y-6">
-          <div className="bg-[#11141D] border border-gray-800 rounded-3xl p-8 shadow-2xl sticky top-24">
-            <h3 className="text-xs font-black uppercase tracking-widest text-gray-500 mb-6 flex items-center justify-between">
-              Match Status
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+        {/* Right Action Column */}
+        <div className="space-y-4">
+          <div className="bg-white border border-brand-borderLight rounded-3xl p-5 sm:p-6 shadow-card-hover">
+            <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-4 flex items-center justify-between">
+              Registration
+              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
             </h3>
             
             {isParticipant ? (
-              <div className="mb-8 bg-[#00F0FF]/5 border border-[#00F0FF]/20 p-6 rounded-2xl text-center">
-                <ShieldAlert className="text-[#00F0FF] mx-auto mb-3" size={32} />
-                <p className="text-sm font-black text-[#00F0FF] uppercase tracking-wider mb-2">You're Registered</p>
-                <p className="text-xs text-gray-400 leading-relaxed mb-4">Room details are revealed 15 minutes before the match starts.</p>
+              <div className="bg-indigo-50/70 border border-indigo-200 p-4 rounded-2xl text-center mb-4">
+                <CheckCircle2 className="text-brand-indigo mx-auto mb-2" size={28} />
+                <p className="text-xs font-bold text-slate-900 uppercase tracking-wide">You're Registered</p>
+                <p className="text-[11px] text-slate-500 mt-1 mb-3">Room details unlock 15 minutes before match start.</p>
                 
                 {credentials ? (
-                  <div className="bg-[#0A0C10] p-4 rounded-xl border border-green-500/30 text-left mt-4 space-y-3">
-                    <div className="flex justify-between items-center text-sm border-b border-gray-800 pb-2">
-                      <span className="text-gray-500 font-bold uppercase text-[10px] tracking-widest">ID</span>
-                      <span className="text-white font-mono font-bold tracking-wider">{credentials.roomId}</span>
+                  <div className="bg-white p-3 rounded-xl border border-brand-borderLight text-left space-y-2 text-xs">
+                    <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                      <span className="text-slate-400 font-bold uppercase text-[9px]">Room ID</span>
+                      <span className="text-slate-900 font-mono font-bold">{credentials.roomId}</span>
                     </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500 font-bold uppercase text-[10px] tracking-widest">Pass</span>
-                      <span className="text-white font-mono font-bold tracking-wider">{credentials.roomPassword}</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400 font-bold uppercase text-[9px]">Password</span>
+                      <span className="text-slate-900 font-mono font-bold">{credentials.roomPassword}</span>
                     </div>
                   </div>
                 ) : (
                   <button 
                     onClick={fetchRoomCredentials}
-                    className="w-full py-3 rounded-xl font-bold uppercase tracking-widest bg-gray-800 hover:bg-gray-700 text-white transition-colors text-xs"
+                    className="w-full py-2 rounded-xl font-gaming font-bold uppercase tracking-wider bg-brand-indigo hover:bg-brand-violet text-white transition-colors text-xs shadow-sm"
                   >
                     Reveal Credentials
                   </button>
                 )}
                 
-                {credError && <p className="text-red-500 text-[10px] font-bold mt-3">{credError}</p>}
+                {credError && <p className="text-brand-coral text-[10px] font-bold mt-2">{credError}</p>}
               </div>
             ) : isPending ? (
-              <div className="mb-8 bg-yellow-500/10 border border-yellow-500/30 p-6 rounded-2xl text-center">
-                <Loader2 className="text-yellow-500 mx-auto mb-3 animate-spin" size={32} />
-                <p className="text-sm font-black text-yellow-500 uppercase tracking-wider mb-2">Verification Pending</p>
-                <p className="text-xs text-gray-400 leading-relaxed">Your UTR is currently being verified by an Admin. You will be added to the match once confirmed.</p>
+              <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl text-center mb-4">
+                <Loader2 className="text-amber-600 mx-auto mb-2 animate-spin" size={28} />
+                <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">Verification Pending</p>
+                <p className="text-[11px] text-slate-500 mt-1">Admin is verifying your Transaction ID (UTR).</p>
               </div>
             ) : null}
 
-            {success && <div className="mb-6 bg-green-500/10 text-green-400 text-xs font-bold p-4 rounded-xl border border-green-500/30 text-center">{success}</div>}
+            {success && <div className="mb-4 bg-emerald-50 text-emerald-700 text-xs font-bold p-3 rounded-xl border border-emerald-200 text-center">{success}</div>}
 
             {!isParticipant && !isPending && (
               <button 
                 onClick={initiateJoin}
                 disabled={isFull || isClosed}
-                className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest transition-all ${
-                  isClosed ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' :
-                  isFull ? 'bg-red-500/10 text-red-500 cursor-not-allowed border border-red-500/20' :
-                  'bg-gradient-to-r from-[#b026ff] to-[#00F0FF] text-white hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-[0_0_30px_rgba(0,240,255,0.4)]'
+                className={`w-full py-3.5 rounded-xl font-gaming font-bold uppercase tracking-wider text-xs sm:text-sm transition-all shadow-glow-primary ${
+                  isClosed ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' :
+                  isFull ? 'bg-red-100 text-brand-coral cursor-not-allowed shadow-none' :
+                  'bg-gradient-to-r from-brand-indigo to-brand-violet hover:from-brand-violet hover:to-brand-indigo text-white active:scale-[0.98]'
                 }`}
               >
-                 {isClosed ? 'Registration Closed' :
+                {isClosed ? 'Registration Closed' :
                  isFull ? 'Tournament Full' : 
-                 'Register'}
+                 'Join Tournament'}
               </button>
             )}
           </div>

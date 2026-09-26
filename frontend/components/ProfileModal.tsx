@@ -17,7 +17,6 @@ export default function ProfileModal({ isOpen, onClose, user }: ProfileModalProp
   const [message, setMessage] = useState('');
   const [copied, setCopied] = useState(false);
 
-  // Pre-fill the UID if the user already has one saved
   useEffect(() => {
     if (user?.freeFireUid) setUid(user.freeFireUid);
   }, [user]);
@@ -34,17 +33,15 @@ export default function ProfileModal({ isOpen, onClose, user }: ProfileModalProp
     setLoading(true);
     setMessage('');
     try {
-      // Send the new UID to the backend
       await api.put('/users/profile', { freeFireUid: uid });
       setMessage('Game UID saved successfully!');
       
-      // Small delay before closing so they see the success message
       setTimeout(() => {
         onClose();
-        window.location.reload(); // Refresh page to sync the new data
-      }, 1500);
+        window.location.reload();
+      }, 1200);
     } catch (error: any) {
-      setMessage(error.response?.data?.error || 'Failed to update profile. Route might be missing!');
+      setMessage(error.response?.data?.error || 'Failed to update profile.');
     } finally {
       setLoading(false);
     }
@@ -59,41 +56,43 @@ export default function ProfileModal({ isOpen, onClose, user }: ProfileModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#11141D] border border-[#b026ff]/30 rounded-2xl w-full max-w-sm overflow-hidden shadow-[0_0_50px_rgba(176,38,255,0.1)]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white border border-brand-borderLight rounded-3xl w-full max-w-sm overflow-hidden shadow-card-hover">
         
         {/* Header */}
-        <div className="bg-[#0A0C10] p-5 border-b border-gray-800 flex justify-between items-center">
+        <div className="bg-slate-50 p-4 sm:p-5 border-b border-brand-borderLight flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <UserIcon className="text-[#b026ff]" size={20} />
-            <h2 className="text-xl font-bold text-white tracking-wider">PLAYER PROFILE</h2>
+            <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center text-brand-indigo">
+              <UserIcon size={16} />
+            </div>
+            <h2 className="text-base font-extrabold text-slate-900 tracking-wider font-gaming uppercase">Player Profile</h2>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white transition bg-gray-800/50 hover:bg-gray-800 p-1.5 rounded-lg">
-            <X size={20} />
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition bg-slate-100 p-1.5 rounded-lg">
+            <X size={18} />
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-5">
           {message && (
-            <div className={`p-3 rounded-lg text-sm font-bold mb-4 border ${message.includes('success') ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30'}`}>
+            <div className={`p-2.5 rounded-xl text-xs font-bold mb-3 border ${message.includes('success') ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-red-50 text-brand-coral border-red-200'}`}>
               {message}
             </div>
           )}
 
-          <form onSubmit={handleSave} className="space-y-4">
+          <form onSubmit={handleSave} className="space-y-3">
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Platform Username</label>
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Platform Username</label>
               <input 
                 type="text" 
                 value={user?.username || ''} 
                 disabled 
-                className="w-full bg-[#0A0C10] border border-gray-800 rounded-xl px-4 py-3 text-gray-500 cursor-not-allowed font-medium" 
+                className="w-full bg-slate-100 border border-brand-borderLight rounded-xl px-3.5 py-2.5 text-slate-500 cursor-not-allowed text-xs font-medium" 
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
-                <Crosshair size={14} className="text-[#b026ff]"/> Free Fire UID
+              <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                <Crosshair size={13} className="text-brand-indigo"/> Free Fire UID
               </label>
               <input 
                 type="text" 
@@ -101,41 +100,41 @@ export default function ProfileModal({ isOpen, onClose, user }: ProfileModalProp
                 value={uid} 
                 onChange={(e) => setUid(e.target.value)} 
                 placeholder="e.g., 1234567890"
-                className="w-full bg-[#0A0C10] border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#b026ff] transition-colors font-medium tracking-widest" 
+                className="w-full bg-slate-50 border border-brand-borderLight rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:bg-white focus:border-brand-indigo transition-colors text-xs font-semibold tracking-wider" 
               />
-              <p className="text-[10px] text-gray-500 mt-2 uppercase tracking-wide">This exact UID must join the custom room.</p>
+              <p className="text-[10px] text-slate-400 mt-1">This exact UID must join the custom room for automatic payout.</p>
             </div>
 
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full bg-gradient-to-r from-[#b026ff]/20 to-[#b026ff]/10 hover:from-[#b026ff]/30 border border-[#b026ff]/50 text-[#b026ff] font-bold py-3 px-4 rounded-xl transition-all mt-2 flex items-center justify-center gap-2 uppercase tracking-wider active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-gradient-to-r from-brand-indigo to-brand-violet hover:from-brand-violet hover:to-brand-indigo text-white font-gaming text-xs font-bold py-2.5 px-4 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 uppercase tracking-wider active:scale-95 disabled:opacity-50 mt-1"
             >
-              <Save size={18} /> {loading ? 'Saving...' : 'Save Profile'}
+              <Save size={15} /> {loading ? 'Saving...' : 'Save Profile'}
             </button>
           </form>
 
-          {/* 🚀 NEW: REFER & EARN SECTION */}
-          <div className="mt-6 pt-6 border-t border-gray-800">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-              <Gift size={16} className="text-green-400"/> Refer & Earn
+          {/* Refer & Earn Section */}
+          <div className="mt-5 pt-4 border-t border-brand-borderLight">
+            <h3 className="text-[11px] font-bold text-slate-700 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+              <Gift size={14} className="text-brand-mint"/> Refer & Earn
             </h3>
             
-            <p className="text-[11px] text-gray-500 mb-4 leading-relaxed">
-              Invite friends to play! Get <strong className="text-green-400 font-bold">₹5 Bonus</strong> when they play their 1st paid match, and <strong className="text-green-400 font-bold">₹10 Bonus</strong> on their 5th match.
+            <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">
+              Invite friends to compete! Earn <strong className="text-emerald-600 font-bold">₹5 Bonus</strong> on their 1st paid match.
             </p>
 
             <div className="flex items-center gap-2">
-              <div className="flex-1 bg-[#0A0C10] border border-gray-700 rounded-xl px-4 py-3 text-white font-mono text-sm tracking-widest text-center truncate">
+              <div className="flex-1 bg-slate-50 border border-brand-borderLight rounded-xl px-3 py-2 text-slate-800 font-mono text-xs tracking-wider text-center truncate">
                 {user?.referralCode || 'Generating...'}
               </div>
               <button 
                 type="button"
                 onClick={copyToClipboard}
-                className="p-3 bg-[#11141D] hover:bg-gray-800 text-gray-300 hover:text-white rounded-xl transition-all border border-gray-700 hover:border-gray-500 active:scale-95 flex-shrink-0"
+                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-xl transition-all border border-brand-borderLight active:scale-95 flex-shrink-0"
                 title="Copy Referral Code"
               >
-                {copied ? <CheckCircle2 size={18} className="text-green-400" /> : <Copy size={18} />}
+                {copied ? <CheckCircle2 size={16} className="text-emerald-600" /> : <Copy size={16} />}
               </button>
             </div>
           </div>

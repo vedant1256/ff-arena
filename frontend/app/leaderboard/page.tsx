@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Trophy, Medal, Crown, Swords, Loader2, IndianRupee } from 'lucide-react';
+import { Trophy, Medal, Crown, Swords, Loader2 } from 'lucide-react';
 import api from '../../lib/axios';
 
 interface Player {
@@ -20,7 +20,6 @@ export default function LeaderboardPage() {
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        // Backend se top 10 players laa rahe hain
         const response = await api.get('/auth/leaderboard');
         setPlayers(response.data);
       } catch (err) {
@@ -35,40 +34,39 @@ export default function LeaderboardPage() {
   }, []);
 
   return (
-    <div className="min-h-[85vh] py-10 px-4 flex flex-col items-center relative">
-      {/* Background Glow */}
-      <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[300px] h-[300px] bg-[#00F0FF]/10 rounded-full blur-[120px] pointer-events-none"></div>
-
-      <div className="mb-10 flex flex-col items-center relative z-10">
-        <h1 className="text-4xl md:text-5xl font-extrabold tracking-widest text-white flex items-center gap-3 uppercase">
-          <Trophy size={40} className="text-[#00F0FF]" /> 
-          HALL OF <span className="text-[#00F0FF]">FAME</span>
+    <div className="max-w-md md:max-w-3xl mx-auto px-4 py-6 flex flex-col items-center">
+      {/* Title Header */}
+      <div className="mb-6 flex flex-col items-center text-center">
+        <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-500 mb-2 shadow-sm">
+          <Trophy size={26} />
+        </div>
+        <h1 className="text-2xl md:text-3xl font-extrabold tracking-wider font-gaming uppercase bg-gradient-to-r from-brand-indigo via-brand-violet to-brand-teal bg-clip-text text-transparent">
+          HALL OF FAME
         </h1>
-        <p className="text-gray-400 mt-2 text-sm md:text-base tracking-widest uppercase font-semibold">
-          Top Warriors of the Arena
+        <p className="text-slate-500 mt-0.5 text-xs font-medium tracking-wide">
+          Top warriors of the Free Fire arena
         </p>
       </div>
 
-      <div className="w-full max-w-3xl relative z-10">
+      <div className="w-full">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-[#00F0FF]">
-            <Loader2 size={40} className="animate-spin mb-4" />
-            <p className="animate-pulse tracking-widest uppercase text-sm font-bold">Loading Rankings...</p>
+          <div className="flex flex-col items-center justify-center py-16 text-brand-indigo">
+            <Loader2 size={32} className="animate-spin mb-2" />
+            <p className="tracking-widest uppercase text-xs font-bold text-slate-400">Loading Rankings...</p>
           </div>
         ) : error ? (
-          <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-xl text-center font-bold">
+          <div className="bg-red-50 border border-red-200 text-brand-coral p-4 rounded-2xl text-center text-xs font-bold">
             {error}
           </div>
         ) : players.length === 0 ? (
-          <div className="bg-[#11141D] border border-gray-800 p-10 rounded-2xl text-center text-gray-500 flex flex-col items-center">
-            <Swords size={48} className="mb-4 opacity-20" />
-            <p className="text-lg font-bold">No data available yet.</p>
-            <p className="text-sm">Matches need to be played to rank players!</p>
+          <div className="bg-white border border-brand-borderLight p-8 rounded-3xl text-center text-slate-500 shadow-card-subtle flex flex-col items-center">
+            <Swords size={40} className="mb-2 text-slate-300" />
+            <p className="text-sm font-bold text-slate-700">No battle records yet</p>
+            <p className="text-xs text-slate-400 mt-1">Play matches to claim your spot on the leaderboard!</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-2.5">
             {players.map((player, index) => {
-              // Styling logic for Top 3
               const isRank1 = index === 0;
               const isRank2 = index === 1;
               const isRank3 = index === 2;
@@ -76,44 +74,44 @@ export default function LeaderboardPage() {
               return (
                 <div 
                   key={player.id} 
-                  className={`relative overflow-hidden rounded-2xl flex items-center justify-between p-4 md:p-6 transition-transform hover:scale-[1.02] ${
-                    isRank1 ? 'bg-gradient-to-r from-yellow-500/20 to-[#11141D] border border-yellow-500/50 shadow-[0_0_30px_rgba(234,179,8,0.15)]' :
-                    isRank2 ? 'bg-gradient-to-r from-gray-300/20 to-[#11141D] border border-gray-400/50' :
-                    isRank3 ? 'bg-gradient-to-r from-amber-700/30 to-[#11141D] border border-amber-700/50' :
-                    'bg-[#11141D] border border-gray-800'
+                  className={`rounded-2xl flex items-center justify-between p-3.5 sm:p-4 transition-all shadow-card-subtle ${
+                    isRank1 ? 'bg-gradient-to-r from-amber-50/80 via-white to-amber-50/40 border border-amber-200' :
+                    isRank2 ? 'bg-gradient-to-r from-slate-50 via-white to-slate-50/40 border border-slate-200' :
+                    isRank3 ? 'bg-gradient-to-r from-orange-50/60 via-white to-orange-50/30 border border-orange-200' :
+                    'bg-white border border-brand-borderLight'
                   }`}
                 >
-                  <div className="flex items-center gap-4 md:gap-6">
-                    {/* Rank Icon */}
-                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-[#0A0C10] border border-gray-800 flex-shrink-0">
-                      {isRank1 ? <Crown size={28} className="text-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.8)]" /> :
-                       isRank2 ? <Medal size={24} className="text-gray-300" /> :
-                       isRank3 ? <Medal size={24} className="text-amber-600" /> :
-                       <span className="text-xl font-bold text-gray-500">#{index + 1}</span>}
+                  <div className="flex items-center gap-3">
+                    {/* Rank Badge */}
+                    <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-slate-50 border border-brand-borderLight flex-shrink-0">
+                      {isRank1 ? <Crown size={20} className="text-amber-500" /> :
+                       isRank2 ? <Medal size={18} className="text-slate-400" /> :
+                       isRank3 ? <Medal size={18} className="text-amber-700" /> :
+                       <span className="text-xs font-bold text-slate-500">#{index + 1}</span>}
                     </div>
 
                     {/* Player Info */}
                     <div>
-                      <h3 className={`text-lg md:text-xl font-extrabold uppercase tracking-wider ${isRank1 ? 'text-yellow-500' : 'text-white'}`}>
+                      <h3 className={`text-sm sm:text-base font-extrabold font-gaming uppercase tracking-wider ${isRank1 ? 'text-amber-700' : 'text-slate-900'}`}>
                         {player.username}
                       </h3>
-                      <p className="text-xs md:text-sm text-gray-400 font-medium flex items-center gap-1 mt-0.5">
-                        <Swords size={14} className="text-purple-400" /> {player.paidMatchesCount} Paid Matches
+                      <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                        <Swords size={11} className="text-brand-indigo" /> {player.paidMatchesCount} Paid Matches
                       </p>
                     </div>
                   </div>
 
                   {/* Winnings Display */}
                   <div className="text-right flex flex-col items-end">
-                    <p className="text-[10px] md:text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Total Winnings</p>
-                    <div className={`flex items-center gap-1 font-black text-xl md:text-2xl ${
-                      isRank1 ? 'text-yellow-400' : 
-                      isRank2 ? 'text-gray-200' : 
-                      isRank3 ? 'text-amber-500' : 
-                      'text-green-400'
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Total Winnings</p>
+                    <div className={`flex items-center font-black font-gaming text-base sm:text-lg ${
+                      isRank1 ? 'text-amber-600' : 
+                      isRank2 ? 'text-slate-700' : 
+                      isRank3 ? 'text-orange-600' : 
+                      'text-emerald-600'
                     }`}>
-                      <IndianRupee size={20} />
-                      {player.winningBalance.toFixed(0)}
+                      <span>₹</span>
+                      {(player.winningBalance || 0).toLocaleString('en-IN')}
                     </div>
                   </div>
 

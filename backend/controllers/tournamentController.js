@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 
 const ADMIN_EMAILS = [
   "vedantjadhav30.7.2007@gmail.com",
-  "shrikrishnadevkar60@gmail.com",
+  "shrikrishnadevkar51@gmail.com",
   "parthpronarkhede@gmail.com"
 ];
 

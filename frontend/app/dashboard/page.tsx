@@ -2,35 +2,46 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, Users, Map, Lock, Gamepad2, Loader2, IndianRupee } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { Loader2, ShieldAlert, X, Trophy, Check, ArrowRight } from 'lucide-react';
 import api from '../../lib/axios';
-import { useRouter } from 'next/navigation';
 import TournamentCard from '../../components/TournamentCard';
+
+
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [tournaments, setTournaments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [filter, setFilter] = useState('All');
+  const searchParams = useSearchParams();
+  const tab = searchParams.get('tab');
 
-  const filters = ['All', 'Solo', 'Duo', 'Squad', 'Clash Squad', 'Lone Wolf'];
+  const [tournaments, setTournaments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(true);
+  const [filter, setFilter] = useState('All');
+  const [showRulesModal, setShowRulesModal] = useState(false);
+
+  const filters = ['All', 'Solo', 'Duo', 'Squad', 'Clash Squad'];
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      router.replace('/login');
+      router.push('/login');
       return;
     }
-    
     setAuthChecked(true);
 
     const fetchTournaments = async () => {
       try {
         const res = await api.get('/tournaments', { headers: { Authorization: `Bearer ${token}` } });
-        setTournaments(res.data);
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setTournaments(res.data);
+        } else {
+          setTournaments([]);
+        }
       } catch (error) {
-        console.error("Failed to fetch tournaments:", error);
+        console.warn("Using default tournament data:", error);
+        setTournaments([]);
       } finally {
         setLoading(false);
       }
@@ -38,135 +49,255 @@ export default function DashboardPage() {
     fetchTournaments();
   }, [router]);
 
-  if (!authChecked) {
+
+
+  // Find spotlight tournament (prefer Kalahari or first open)
+  const spotlightTournament = tournaments.find(t => t.teamMode === 'Squad' || t.title.toLowerCase().includes('kalahari')) || tournaments[0] || null;
+  const spotlightSlots = spotlightTournament?.currentParticipants || 9;
+  const spotlightMax = spotlightTournament?.maxParticipants || 12;
+  const spotlightPercentage = Math.min((spotlightSlots / spotlightMax) * 100, 100);
+
+  // Filter tournaments
+  const filteredTournaments = tournaments.filter(t => {
+    if (tab === 'my-matches') {
+      return t.isUserParticipant || t.status === 'REGISTRATION_OPEN';
+    }
+    if (filter === 'All') return true;
     return (
-      <div className="min-h-[85vh] flex flex-col items-center justify-center text-[#00F0FF]">
-        <Loader2 size={40} className="animate-spin mb-4" />
-      </div>
+      (t.teamMode && t.teamMode.toLowerCase().includes(filter.toLowerCase())) ||
+      (t.gameName && t.gameName.toLowerCase().includes(filter.toLowerCase()))
     );
-  }
+  });
 
   return (
-    <div className="min-h-[85vh] text-gray-300 animate-in fade-in duration-500">
+    <div className="max-w-md md:max-w-4xl lg:max-w-5xl mx-auto px-4 pt-3.5 space-y-4">
       
-      {/* 🔴 5 IMPORTANT ARENA RULES & GUIDELINES */}
-      <div className="bg-[#11141D] border border-red-500/20 rounded-2xl p-5 sm:p-8 mb-10 shadow-lg">
-        <h2 className="flex items-center gap-3 text-lg sm:text-xl font-black text-red-500 uppercase tracking-widest mb-6">
-          <ShieldAlert size={24} /> Arena Rules & Guidelines
-        </h2>
-        
-        <div className="space-y-3">
-          <div className="bg-[#0A0C10] border border-gray-800 p-4 rounded-xl flex items-start gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-2 flex-shrink-0"></div>
-            <p className="text-sm"><strong className="text-white">1. No PC Players Allowed:</strong> Strictly no PC or Emulator players permitted in any match.</p>
+      {/* BEGIN: WelcomeAndQuickStatusBanner */}
+      <section className="rounded-2xl bg-gradient-to-r from-indigo-50/80 via-white to-sky-50/80 border border-indigo-100/80 p-3.5 shadow-card-subtle flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-extrabold text-slate-900 tracking-tight flex items-center gap-1.5">
+            <span>Welcome, Champion!</span>
+            <span className="text-base">⚡</span>
+          </h2>
+          <p className="text-[11px] text-slate-500 font-medium mt-0.5">Ready to dominate today's custom rooms?</p>
+        </div>
+        <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-full border border-brand-borderLight shadow-sm">
+          <svg className="w-3.5 h-3.5 text-brand-mint" fill="currentColor" viewBox="0 0 20 20">
+            <path clipRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" fillRule="evenodd" />
+          </svg>
+          <span className="text-[10px] font-bold text-slate-700 tracking-wide uppercase">Mobile Only</span>
+        </div>
+      </section>
+      {/* END: WelcomeAndQuickStatusBanner */}
+
+      {/* BEGIN: FeaturedSpotlightTournament */}
+      {spotlightTournament && !loading && (
+      <section className="relative rounded-3xl p-4 bg-white border border-indigo-100 shadow-card-hover overflow-hidden">
+        {/* Light decorative background accents */}
+        <div className="absolute -top-12 -right-12 w-36 h-36 bg-gradient-to-br from-indigo-100/70 to-purple-100/40 rounded-full blur-2xl pointer-events-none"></div>
+        <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-teal-100/50 rounded-full blur-xl pointer-events-none"></div>
+
+        {/* Header badges */}
+        <div className="flex items-center justify-between relative z-10">
+          <div className="flex items-center gap-1.5">
+            <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-brand-indigo border border-indigo-200/70 text-[10px] font-bold tracking-wider uppercase">
+              {spotlightTournament?.gameName || 'FREE FIRE'}
+            </span>
+            <span className="px-2 py-0.5 rounded-full bg-amber-50 text-brand-amber border border-amber-200 text-[10px] font-bold uppercase flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-amber animate-pulse"></span>
+              MEGA EVENT
+            </span>
+          </div>
+          <div className="text-[10px] font-semibold text-slate-600 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1 shadow-sm">
+            <svg className="w-3 h-3 text-brand-indigo" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span>Starts: <span className="text-brand-indigo font-bold">01h 45m</span></span>
+          </div>
+        </div>
+
+        {/* Title & Match Info */}
+        <div className="mt-3 relative z-10">
+          <h3 className="text-base sm:text-lg font-extrabold text-slate-900 font-gaming tracking-wide flex items-center gap-1.5">
+            🏆 {spotlightTournament?.title || 'Kalahari Mega Squad Championship'}
+          </h3>
+          <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium mt-1">
+            <span className="flex items-center gap-1">
+              <svg className="w-3.5 h-3.5 text-slate-400" fill="currentColor" viewBox="0 0 20 20">
+                <path clipRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" fillRule="evenodd" />
+              </svg>
+              {spotlightTournament?.map || 'Kalahari'}
+            </span>
+            <span>•</span>
+            <span className="flex items-center gap-1">
+              <svg className="w-3.5 h-3.5 text-slate-400" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+              </svg>
+              {spotlightTournament?.teamMode || 'Squad (4v4)'}
+            </span>
+          </div>
+        </div>
+
+        {/* Entry and Prize Pool Highlighted Cards */}
+        <div className="grid grid-cols-2 gap-2.5 mt-3 relative z-10">
+          <div className="bg-slate-50/90 border border-slate-200/80 p-2.5 rounded-xl text-center">
+            <span className="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">ENTRY FEE</span>
+            <span className="text-lg font-black text-amber-600 font-gaming leading-tight">₹{spotlightTournament?.entryFee || 200}</span>
+            <span className="text-[9px] text-slate-400 block mt-0.5">Per Squad</span>
+          </div>
+          <div className="bg-emerald-50/70 border border-emerald-200/80 p-2.5 rounded-xl text-center">
+            <span className="text-[9px] uppercase font-bold tracking-wider text-emerald-700 block">PRIZE POOL</span>
+            <span className="text-lg font-black text-emerald-600 font-gaming leading-tight">₹{spotlightTournament?.prizePool || 10000}</span>
+            <span className="text-[9px] text-emerald-600/80 block mt-0.5">Winner: 60%</span>
+          </div>
+        </div>
+
+        {/* Progress bar and CTA */}
+        <div className="mt-3.5 relative z-10">
+          <div className="flex items-center justify-between text-[11px] font-semibold mb-1.5">
+            <span className="text-slate-600">Slots Filled</span>
+            <span className="text-brand-indigo font-bold">{spotlightSlots} / {spotlightMax} Teams</span>
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+            <div 
+              className="bg-gradient-to-r from-brand-indigo to-brand-teal h-full rounded-full transition-all duration-500" 
+              style={{ width: `${spotlightPercentage}%` }}
+            ></div>
           </div>
           
-          <div className="bg-[#0A0C10] border border-gray-800 p-4 rounded-xl flex items-start gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-2 flex-shrink-0"></div>
-            <p className="text-sm"><strong className="text-white">2. Mobile Only:</strong> Platform is for mobile players only. Violators will be kicked and entry fee forfeited.</p>
-          </div>
-
-          <div className="bg-[#0A0C10] border border-gray-800 p-4 rounded-xl flex items-start gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-2 flex-shrink-0"></div>
-            <p className="text-sm"><strong className="text-white">3. UID Verification:</strong> In-game Free Fire UID must perfectly match your saved Profile UID for payouts.</p>
-          </div>
-
-          <div className="bg-[#0A0C10] border border-gray-800 p-4 rounded-xl flex items-start gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-2 flex-shrink-0"></div>
-            <p className="text-sm"><strong className="text-white">4. Zero Tolerance:</strong> Hacks, scripts, glitches, or teaming up will result in a permanent ban and <strong>immediate forfeiture of all funds.</strong></p>
-          </div>
-
-          <div className="bg-[#0A0C10] border border-gray-800 p-4 rounded-xl flex items-start gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-2 flex-shrink-0"></div>
-            <p className="text-sm"><strong className="text-white">5. Timings:</strong> Join exactly at the scheduled time. Admin decisions are final.</p>
-          </div>
+          <Link href={`/tournaments/${spotlightTournament?.id}`}>
+            <button 
+              className="w-full mt-3 py-2.5 px-4 rounded-xl bg-gradient-to-r from-brand-indigo to-brand-violet text-white font-gaming text-sm font-bold uppercase tracking-wider shadow-glow-primary active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 hover:from-brand-violet hover:to-brand-indigo" 
+              type="button"
+            >
+              <span>Join Now</span>
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path d="M13 7l5 5m0 0l-5 5m5-5H6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </Link>
         </div>
-      </div>
+      </section>
+            )} {/* END: FeaturedSpotlightTournament */}
 
-      {/* 🟢 TOURNAMENT FILTERS */}
-      <div className="flex flex-wrap items-center gap-3 mb-8">
-        {filters.map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-5 py-2 rounded-full text-xs font-bold transition-all border ${
-              filter === f 
-                ? 'bg-[#00F0FF]/10 text-[#00F0FF] border-[#00F0FF]' 
-                : 'bg-transparent text-gray-500 border-gray-800 hover:border-gray-600 hover:text-gray-300'
-            }`}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
-
-      {/* 🎮 TOURNAMENT FEED */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-[#00F0FF]">
-          <Loader2 size={40} className="animate-spin mb-4" />
-          <p className="text-sm font-bold uppercase tracking-widest text-gray-400">Loading Matches...</p>
+      {/* BEGIN: FilterPills */}
+      <section className="py-0.5" data-purpose="mode-filters">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+          {filters.map((f) => {
+            const isActive = filter === f;
+            return (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-4 py-1.5 rounded-full font-bold text-xs tracking-wide whitespace-nowrap transition-all ${
+                  isActive
+                    ? 'bg-brand-indigo text-white shadow-sm'
+                    : 'bg-white border border-brand-borderLight text-slate-600 hover:text-slate-900 hover:border-slate-300 shadow-card-subtle'
+                }`}
+                type="button"
+              >
+                {f}
+              </button>
+            );
+          })}
         </div>
-      ) : tournaments.length === 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Static Fallback Cards for the Prototype Showcase */}
-          {[
-            { mode: 'BR (Solo)', type: 'BATTLE ROYALE', players: '0/50', entry: '10', prize: '300', icon: <Users size={14} className="text-gray-500"/> },
-            { mode: 'BR (Duo)', type: 'BATTLE ROYALE', players: '0/25 Teams', entry: '20', prize: '300', icon: <Users size={14} className="text-gray-500"/> },
-            { mode: 'BR (Squad)', type: 'BATTLE ROYALE', players: '0/12 Teams', entry: '40', prize: '288', icon: <Users size={14} className="text-gray-500"/> },
-            { mode: 'CS (Clash Squad)', type: 'CLASH SQUAD', players: '0/8', entry: '10', prize: '48', icon: <Users size={14} className="text-gray-500"/> },
-            { mode: 'Lone Wolf', type: 'LONE WOLF', players: '0/2', entry: '10', prize: '12', icon: <Users size={14} className="text-gray-500"/> }
-          ].map((match, i) => (
-            <div key={i} className="bg-[#11141D] border border-gray-800 rounded-2xl overflow-hidden hover:border-gray-600 transition-colors">
-              <div className="p-5">
-                <div className="flex justify-between items-start mb-4">
-                  <span className="bg-[#00F0FF]/10 text-[#00F0FF] text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider border border-[#00F0FF]/30">
-                    {match.type}
-                  </span>
-                  <span className="text-gray-500 text-[10px] font-bold flex items-center gap-1 uppercase">
-                    <Lock size={12} /> Upcoming
-                  </span>
-                </div>
-                
-                <h3 className="text-xl font-black text-white mb-2">{match.mode} Match</h3>
-                <div className="flex items-center gap-4 text-xs text-gray-400 font-semibold mb-6">
-                  <span className="flex items-center gap-1"><Map size={14} className="text-gray-500"/> Random Map</span>
-                  <span className="flex items-center gap-1">{match.icon} {match.mode}</span>
-                </div>
+      </section>
+      {/* END: FilterPills */}
 
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                  <div className="bg-[#0A0C10] border border-gray-800 p-3 rounded-xl text-center">
-                    <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">Entry Fee</p>
-                    <p className="text-yellow-500 font-black text-lg flex items-center justify-center"><IndianRupee size={16}/> {match.entry}</p>
-                  </div>
-                  <div className="bg-[#0A0C10] border border-gray-800 p-3 rounded-xl text-center">
-                    <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">Prize Pool</p>
-                    <p className="text-green-400 font-black text-lg flex items-center justify-center"><IndianRupee size={16}/> {match.prize}</p>
-                  </div>
-                </div>
+      {/* BEGIN: TournamentCardsGrid */}
+      <section className="space-y-3" data-purpose="tournaments-list">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12 text-brand-indigo">
+            <Loader2 size={32} className="animate-spin mb-2 text-brand-indigo" />
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Loading Tournaments...</p>
+          </div>
+        ) : filteredTournaments.length === 0 ? (
+          <div className="bg-white border border-brand-borderLight p-8 rounded-2xl text-center text-slate-500 shadow-card-subtle">
+            <p className="text-sm font-bold text-slate-700">No tournaments matching "{filter}"</p>
+            <p className="text-xs text-slate-400 mt-1">Check back soon for new room registrations.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {filteredTournaments.map((t) => (
+              <TournamentCard 
+                key={t.id} 
+                tournament={t} 
+                onOpenRules={() => setShowRulesModal(true)} 
+              />
+            ))}
+          </div>
+        )}
+      </section>
+      {/* END: TournamentCardsGrid */}
 
-                <div>
-                  <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">
-                    <span>Slots Filled</span>
-                    <span>{match.players}</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-[#00F0FF]" style={{ width: '0%' }}></div>
-                  </div>
-                </div>
+      {/* 🛡️ Arena Rules & Fair Play Modal */}
+      {showRulesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white border border-brand-borderLight rounded-3xl w-full max-w-md shadow-card-hover overflow-hidden animate-in zoom-in-95">
+            <div className="flex items-center justify-between p-5 border-b border-brand-borderLight bg-slate-50">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="text-brand-coral" size={22} />
+                <h3 className="text-base font-extrabold text-slate-900 font-gaming uppercase tracking-wide">
+                  Arena Rules & Guidelines
+                </h3>
+              </div>
+              <button 
+                onClick={() => setShowRulesModal(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3 text-xs text-slate-600 max-h-[60vh] overflow-y-auto">
+              <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-brand-coral mt-1.5 flex-shrink-0"></div>
+                <p>
+                  <strong className="text-slate-900 font-bold">1. Mobile Players Only:</strong> Strictly no PC, emulators, or iPad devices allowed. Detected emulators are disqualified.
+                </p>
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-brand-borderLight rounded-xl flex items-start gap-2.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-brand-indigo mt-1.5 flex-shrink-0"></div>
+                <p>
+                  <strong className="text-slate-900 font-bold">2. UID Verification:</strong> Your Free Fire in-game UID must perfectly match the UID in your Profile for prize payouts.
+                </p>
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-brand-borderLight rounded-xl flex items-start gap-2.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-brand-indigo mt-1.5 flex-shrink-0"></div>
+                <p>
+                  <strong className="text-slate-900 font-bold">3. Zero Tolerance on Cheating:</strong> Scripts, hacks, or glitch exploits result in a permanent ban and forfeiture of funds.
+                </p>
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-brand-borderLight rounded-xl flex items-start gap-2.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-brand-indigo mt-1.5 flex-shrink-0"></div>
+                <p>
+                  <strong className="text-slate-900 font-bold">4. Room Timings:</strong> Room ID & Password are revealed 15 minutes before the match start time. Join promptly.
+                </p>
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-brand-borderLight rounded-xl flex items-start gap-2.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-brand-indigo mt-1.5 flex-shrink-0"></div>
+                <p>
+                  <strong className="text-slate-900 font-bold">5. Fair Play:</strong> Teaming up in Solo matches is strictly prohibited. Admin match recordings are final.
+                </p>
               </div>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tournaments
-            .filter((t: any) => filter === 'All' || t.gameName === filter)
-            .map((tournament: any) => (
-              <TournamentCard key={tournament.id} tournament={tournament} />
-          ))}
+
+            <div className="p-4 bg-slate-50 border-t border-brand-borderLight">
+              <button
+                onClick={() => setShowRulesModal(false)}
+                className="w-full py-2.5 rounded-xl bg-brand-indigo hover:bg-brand-violet text-white font-gaming text-xs font-bold uppercase tracking-wider shadow-sm transition-all"
+              >
+                I Understand
+              </button>
+            </div>
+          </div>
         </div>
       )}
-      
+
     </div>
   );
 }

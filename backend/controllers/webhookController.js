@@ -11,10 +11,21 @@ const handleSmsWebhook = async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { utr, amount, sender, timestamp } = req.body;
+    let { utr, amount, sender, timestamp, rawMessage } = req.body;
     
-    if (!utr || amount === undefined) {
-      return res.status(400).json({ error: 'Missing required payload fields' });
+    // Parse raw SMS message if provided (e.g. from SMS Forwarder apps)
+    if (rawMessage && (!utr || amount === undefined)) {
+      // Look for 12-digit UTR (standard UPI Ref No)
+      const utrMatch = rawMessage.match(/\b\d{12}\b/);
+      // Look for Rs/INR amount
+      const amountMatch = rawMessage.match(/(?:Rs|INR|INR\.)\s*([\d,\.]+)/i);
+      
+      if (utrMatch) utr = utrMatch[0];
+      if (amountMatch) amount = parseFloat(amountMatch[1].replace(/,/g, ''));
+    }
+
+    if (!utr || amount === undefined || isNaN(amount)) {
+      return res.status(400).json({ error: 'Missing required payload fields or failed to parse SMS' });
     }
 
     console.log(`[WEBHOOK] Received Payment Notification: UTR=${utr}, Amount=${amount}`);

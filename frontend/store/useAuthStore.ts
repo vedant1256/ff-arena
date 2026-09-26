@@ -16,6 +16,7 @@ interface AuthState {
   token: string | null;
   login: (token: string, userData: User) => void; 
   logout: () => void;
+  setUser: (userData: User) => void;
   loadFromStorage: () => void; // 🚀 FIXED: Added to satisfy TypeScript in Providers.tsx
 }
 
@@ -35,6 +36,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       localStorage.removeItem('token');
     }
     set({ user: null, token: null });
+  },
+
+  setUser: (userData) => {
+    set({ user: userData });
   },
 
   // 🚀 FIXED: Implemented the missing function to load the token on page refresh

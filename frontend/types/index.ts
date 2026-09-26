@@ -46,7 +46,8 @@ export interface Tournament {
   maxParticipants: number;
   currentParticipants: number;
   status: string;
-  scheduledAt: string;
+  scheduledAt?: string;
+  startTime?: string;
   roomId?: string;
   roomPassword?: string;
   participants?: any[];

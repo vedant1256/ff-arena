@@ -1,6 +1,6 @@
 // backend/routes/adminRoutes.js
 const express = require('express');
-const { updateTournament, getTournamentPlayers, getAllUsers, toggleBanUser, getPendingWithdrawals, processWithdrawal } = require('../controllers/adminController');
+const { updateTournament, getTournamentPlayers, getAllUsers, toggleBanUser, getPendingWithdrawals, processWithdrawal, clearSystemCache } = require('../controllers/adminController');
 const { protect, admin } = require('../middleware/auth');
 const router = express.Router();
 
@@ -16,5 +16,8 @@ router.put('/users/:id/ban', toggleBanUser);
 
 router.get('/withdrawals', getPendingWithdrawals);
 router.put('/withdrawals/:id/process', processWithdrawal);
+
+// CACHE ROUTE
+router.delete('/system/cache', clearSystemCache);
 
 module.exports = router;

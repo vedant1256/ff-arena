@@ -1,21 +1,22 @@
 // frontend/app/layout.tsx
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
 // 🚀 Imports
 import Navbar from '../components/layout/Navbar'; 
 import Footer from '../components/Footer'; 
+import OfflineIndicator from '../components/OfflineIndicator';
 import { Toaster } from 'react-hot-toast';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'VPS-ESPORTSHUB | Premium Esports Tournaments',
-  description: 'Join custom rooms, compete in tournaments, and build your gaming profile.',
+  title: 'VPS ESPORTSHUB | Premier Gaming Tournaments',
+  description: 'Premier Free Fire Gaming Tournaments and Custom Rooms. Compete, dominate, and earn real rewards.',
 };
 
-export const viewport = {
-  themeColor: '#000000',
+export const viewport: Viewport = {
+  themeColor: '#6366F1',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -29,19 +30,19 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen flex flex-col antialiased selection:bg-[#00F0FF] selection:text-black bg-[#07070F]">
+      <body className="bg-brand-bgLight text-brand-textPrimary font-sans antialiased selection:bg-brand-indigo selection:text-white min-h-screen flex flex-col pb-24 sm:pb-16">
+        <OfflineIndicator />
         {/* Wrap the app in the Google Auth Provider */}
         <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || 'dummy_client_id'}>
           
-          {/* 🚀 Navbar stays fixed at the top */}
+          {/* Top Header & Bottom Dock */}
           <Navbar />
 
-          {/* 🚀 FIX: Changed pt-6 to pt-28 (112px) to push content below the fixed 64px Navbar */}
-          <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-12">
+          <main className="flex-grow w-full">
             {children}
           </main>
 
-          {/* 🚀 Footer stays at the bottom */}
+          {/* Footer */}
           <Footer />
 
         </GoogleOAuthProvider>
@@ -50,9 +51,15 @@ export default function RootLayout({
         <Toaster 
           position="bottom-center"
           toastOptions={{
-            style: { background: '#11141D', color: '#fff', border: '1px solid #374151', borderRadius: '12px' },
-            success: { iconTheme: { primary: '#00F0FF', secondary: '#000' } },
-            error: { iconTheme: { primary: '#EF4444', secondary: '#000' } }
+            style: { 
+              background: '#FFFFFF', 
+              color: '#0F172A', 
+              border: '1px solid #E2E8F0', 
+              borderRadius: '16px',
+              boxShadow: '0 10px 25px -5px rgba(99, 102, 241, 0.12)'
+            },
+            success: { iconTheme: { primary: '#10B981', secondary: '#FFFFFF' } },
+            error: { iconTheme: { primary: '#FF4655', secondary: '#FFFFFF' } }
           }} 
         />
         

@@ -149,4 +149,34 @@ const processWithdrawal = async (req, res) => {
     }
 };
 
-module.exports = { updateTournament, getTournamentPlayers, getAllUsers, toggleBanUser, getPendingWithdrawals, processWithdrawal };
+// @desc    Clear Junk Data & Cache (Unclaimed Deposits, Failed Mismatches)
+// @route   DELETE /api/admin/system/cache
+const clearSystemCache = async (req, res) => {
+    try {
+        const deletedUnclaimed = await prisma.unclaimedDeposit.deleteMany({
+            where: {
+                timestamp: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Older than 24h
+            }
+        });
+
+        const deletedFailed = await prisma.paymentTransaction.deleteMany({
+            where: {
+                status: 'FAILED_MISMATCH',
+                createdAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Older than 24h
+            }
+        });
+
+        res.status(200).json({ 
+            message: 'Cache Cleared Successfully!',
+            details: {
+                clearedUnclaimedWebhooks: deletedUnclaimed.count,
+                clearedFailedTransactions: deletedFailed.count
+            }
+        });
+    } catch (error) {
+        console.error("Error clearing cache:", error);
+        res.status(500).json({ error: 'Failed to clear system cache.' });
+    }
+};
+
+module.exports = { updateTournament, getTournamentPlayers, getAllUsers, toggleBanUser, getPendingWithdrawals, processWithdrawal, clearSystemCache };
